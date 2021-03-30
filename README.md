@@ -1,2 +1,2 @@
 # volt
-[WIP] Lightning in Urbit.
+[WIP] Lightning on Urbit.
