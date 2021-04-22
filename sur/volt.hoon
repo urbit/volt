@@ -1,133 +1,91 @@
-:: volt.hoon
+::
+:: sur/volt.hoon
 ::
 |%
+::
++$  pubkey  octs
++$  txid  octs
++$  chid  octs
++$  sats  @ud
+::
++$  channel-counterparty
+  $%  [%ship ship]
+      [%pubkey pubkey]
+  ==
+::
+++  rpc
+  |%
+  +$  action
+    $%  [%get-info ~]
+        [%open-channel node=pubkey local-amount=sats push-amount=sats]
+        [%close-channel =chid]
+        [%send-payment =invoice]
+    ==
+  ::
+  +$  result
+    $%  [%get-info version=@t commit-hash=@t identity-pubkey=pubkey]
+        [%open-channel funding-txid=txid index=@ud]
+        [%close-channel ~]
+        [%send-payment ~]
+    ==
+  ::
+  +$  error
+    $:  code=@ud
+        message=@t
+    ==
+  ::
+  +$  response  (each result error)
+  ::
+  +$  route-hint
+    $:  node-id=pubkey
+        chan-id=chid
+        fee-base-msat=@ud
+        fee-proportional-usat=@ud
+        cltv-expiry-delta=@ud
+    ==
+  ::
+  +$  invoice
+    $:  memo=@t
+        r-primage=octs
+        r-hash=octs
+        =pubkey
+        amount=sats
+    ==
+  ::
+  --
+::
+::  provider types
+::
 ++  provider
   |%
-  +$  id  @t
   +$  config
     $:  uri=@t
         macaroon=@t
     ==
   ::
   +$  command
-    $%  [%set-uri uri=@t]
-        [%set-macaroon @ta]
+    $%  [%set-configuration =config]
+        [%ping ~]
     ==
   ::
   +$  action
-    $%  [%ping ~]
-        [%open-channel node-key=@t local-amt=@ud push-amt=@ud]
-        [%close-channel =id]
-        [%close-all-channels]
-        [%channel-balance =id]
+    $%  [%associate-pubkey =ship =pubkey]
+        [%open-channel to=channel-counterparty local-amt=sats push-amt=sats]
+        [%close-channel =chid]
     ==
-  ::
-  ++  rpc
-    |%
-    +$  chain
-      $:  chain=@t
-          net=@t
-      ==
-    ::
-    +$  node-info
-      $:  version=@t
-          commit-hash=@t
-          :: identity-pubkey=@t
-          :: alias=@t
-          :: color=@t
-          :: num-pending-channels=@sd
-          :: num-active-channels=@sd
-          :: num-inactive-channels=@sd
-          :: num-peers=@sd
-          :: block-height=@sd
-          :: block-hash=@t
-          :: best-header-timestamp=@t
-          :: synced-to-chain=?
-          :: synced-to-graph=?
-          :: testnet=?
-          :: chains=(list chain)
-          :: uris=(list @t)
-          :: features=@
-      ==
-    ::
-    +$  htlc
-      $:  incoming=?
-          amount=@t
-          hash-lock=@ub
-          expiration-height=@sd
-          htlc-index=@t
-          forwarding-channel=@t
-          forwarding-htlc-index=@t
-      ==
-    ::
-    +$  channel
-      $:  active=?
-          remote-pubkey=@t
-          channel-point=@t
-          chan-id=@t
-          capacity=@t
-          local-balance=@t
-          remote-balance=@t
-          commit-fee=@t
-          commit-weight=@t
-          fee-per-kw=@t
-          unsettled-balance=@t
-          total-satoshis-sent=@t
-          total-satoshis-received=@t
-          num-updates=@t
-          pending-htlcs=(list htlc)
-          csv-delay=@sd
-          private=?
-          initiator=?
-          status-flags=@t
-          local-chan-reserev-sat=@t
-          remote-chan-reserve-sat=@t
-          static-remote-key=?
-          =commitment-type
-          lifetime=@t
-          uptime=@t
-          close-address=@t
-          push-amount-sat=@t
-          thaw-height=@sd
-          local-constraints=channel-constraints
-          remote-constraints=channel-constraints
-      ==
-    ::
-    +$  commitment-type  @ud
-    ::
-    +$  channel-constraints
-      $:  csv-delay=@ud
-          chan-reserve-sat=@ud
-          dust-limit-sat=@ud
-          max-pending-amt-msat=@ud
-          min-htlc-msat=@ud
-          max-accepted-htlcs=@ud
-      ==
-    ::
-    +$  circuit-key
-      $:  chan-id=@udG
-          htlc-id=@udG
-      ==
-    ::
-    ::  +$  payment  ?
-    ::
-    +$  action
-      $%  [%get-info ~]
-          [%open-channel ~]
-          [%close-channel ~]
-          [%send-payment ~]
-      ==
-    ::
-    +$  result
-      $%  [%get-info =node-info]
-      ==
   --
---
 ::
-++  user
-  |%
-  +$  config
-    $:  provider=@p
-    ==
-  --
+::  client types
+::
++$  config
+  $:  provider=ship
+  ==
+::
++$  action
+  $%  [%set-provider provider=ship]
+      [%open-channel ~]
+      [%send-payment to=channel-counterparty value=sats]
+      [%send-invoice ~]
+  ==
+::
 --
