@@ -101,11 +101,7 @@
       [%get-info version.info hash.info (as-octs:mimes:html pubkey.info)]
     ::
         %open-channel
-      =/  res=[txid=@t oidx=@ud]
-      %.  jon   open-channel-response
-      =/  txid  (de:base64:mimes:html txid.res)
-      =/  txid  (need txid)
-      [%open-channel funding-txid=txid index=oidx.res]
+      [%open-channel (channel-point jon)]
     ::
         %close-channel
       [%close-channel ~]
@@ -120,9 +116,9 @@
           ['identity_pubkey' so]
       ==
     ::
-    ++  open-channel-response
+    ++  channel-point
       %-  ot
-      :~  ['funding_txid_bytes' so]
+      :~  ['funding_txid_bytes' (su parse:base64:mimes:html)]
           ['output_index' ni]
       ==
     --
@@ -161,4 +157,111 @@
         [%| (error-from-json u.jon)]
   --
 ::
+++  provider
+  |%
+  ++  from-json
+    =,  dejs:format
+    |%
+    ::
+    ++  channel-update
+      |=  =json
+      |^  ^-  channel-update:rpc:volt
+      ?+  (update-type json)  ~|('Unknown update type' !!)
+        %'OPEN_CHANNEL'           [%open-channel (open-channel json)]
+        %'CLOSED_CHANNEL'         [%closed-channel (closed-channel json)]
+        %'ACTIVE_CHANNEL'         [%active-channel (active-channel json)]
+        %'INACTIVE_CHANNEL'       [%inactive-channel (inactive-channel json)]
+        %'PENDING_OPEN_CHANNEL'   [%pending-channel (pending-channel json)]
+      ==
+      ::
+      ++  update-type
+        %-  ot
+        :~
+        :-  'result'
+          %-  ot  ~[['type' so]]
+        ==
+      --
+    ::
+    ++  active-channel
+      %-  ot
+      :~
+      :-  'result'
+        %-  ot
+        :~
+        :-  'active_channel'
+          %-  ot
+            :~  ['funding_txid_bytes' (su parse:base64:mimes:html)]
+                ['output_index' ni]
+            ==
+        ==
+      ==
+    ::
+    ++  inactive-channel
+      %-  ot
+      :~
+      :-  'result'
+        %-  ot
+        :~
+        :-  'inactive_channel'
+          %-  ot
+            :~  ['funding_txid_bytes' (su parse:base64:mimes:html)]
+                ['output_index' ni]
+            ==
+        ==
+      ==
+    ::
+    ++  closed-channel
+      %-  ot
+      :~
+      :-  'result'
+        %-  ot
+        :~
+        :-  'closed_channel'
+          %-  ot
+          :~  ['channel_point' so]
+              ['chan_id' so]
+              ['chain_hash' so]
+              ['closing_tx_hash' so]
+              ['remote_pubkey' so]
+              ['close_type' so]
+          ==
+        ==
+      ==
+    ::
+    ++  pending-channel
+      %-  ot
+      :~
+      :-  'result'
+        %-  ot
+        :~
+        :-  'pending_open_channel'
+          %-  ot
+          :~  ['txid' (su parse:base64:mimes:html)]
+              ['output_index' ni]
+          ==
+        ==
+      ==
+    ::
+    ++  open-channel
+      %-  ot
+      :~
+      :-  'result'
+        %-  ot
+        :~
+        :-  'open_channel'
+          %-  ot
+          :~  ['active' bo]
+              ['remote_pubkey' so]
+              ['channel_point' so]
+              ['chan_id' so]
+              ['capacity' (su dim:ag)]
+              ['local_balance' (su dim:ag)]
+              ['remote_balance' (su dim:ag)]
+              ['commit_fee' (su dim:ag)]
+              ['total_satoshis_sent' (su dim:ag)]
+          ==
+        ==
+      ==
+    --
+  --
 --

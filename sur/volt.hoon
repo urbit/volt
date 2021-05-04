@@ -24,7 +24,7 @@
   ::
   +$  result
     $%  [%get-info version=@t commit-hash=@t identity-pubkey=pubkey]
-        [%open-channel funding-txid=txid index=@ud]
+        [%open-channel channel-point]
         [%close-channel ~]
         [%send-payment ~]
     ==
@@ -52,6 +52,45 @@
         amount=sats
     ==
   ::
+  +$  channel-update
+    $%  [%open-channel channel]
+        [%closed-channel channel-close-summary]
+        [%active-channel channel-point]
+        [%inactive-channel channel-point]
+        [%pending-channel pending-channel]
+    ==
+  ::
+  +$  channel
+    $:  active=?
+        remote-pubkey=@t
+        channel-point=@t
+        chan-id=@t
+        capacity=sats
+        local-balance=sats
+        remote-balance=sats
+        commit-fee=sats
+        total-sent=sats
+    ==
+  ::
+  +$  channel-close-summary
+    $:  channel-point=@t
+        chid=@t
+        chain-hash=@t
+        closing-tx-hash=@t
+        remote-pubkey=@t
+        channel-closure-type=@tas
+    ==
+  ::
+  +$  channel-point
+    $:  funding-txid=txid
+        output-index=@ud
+    ==
+  ::
+  +$  pending-channel
+    $:  =txid
+        output-index=@ud
+    ==
+  ::
   --
 ::
 ::  provider types
@@ -64,15 +103,17 @@
     ==
   ::
   +$  command
-    $%  [%set-configuration =config]
-        [%ping ~]
+    $%  [%ping ~]
+        [%set-configuration =config]
+        [%open-channel to=pubkey local-amt=sats push-amt=sats]
+        [%close-channel =chid]
     ==
   ::
   +$  action
-    $%  [%associate-pubkey =ship =pubkey]
-        [%open-channel to=channel-counterparty local-amt=sats push-amt=sats]
+    $%  [%open-channel to=channel-counterparty local-amt=sats push-amt=sats]
         [%close-channel =chid]
     ==
+  ::
   --
 ::
 ::  client types
