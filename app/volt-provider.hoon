@@ -63,7 +63,7 @@
     ^-  (list card)
     =/  tid     `@ta`(cat 3 'thread_' (scot %uv (sham eny.bowl)))
     =/  ta-now  `@ta`(scot %da now.bowl)
-    =/  args     [~ `tid %lnd !>(action)]
+    =/  args     [~ `tid %lnd !>([config.state action])]
     :~  [%pass /thread/[ta-now] %agent [our.bowl %spider] %watch /thread-result/[tid]]
         [%pass /thread/[ta-now] %agent [our.bowl %spider] %poke %spider-start !>(args)]
     ==
@@ -71,12 +71,31 @@
   ++  handle-action
     |=  =action:provider:volt
     ^-  (quip card _state)
-    `state
+    ?-    -.action
+        %open-channel   `state
+        %close-channel  `state
+    ==
   ::
   ++  handle-command
     |=  =command:provider:volt
     ^-  (quip card _state)
-    `state
+    ?-    -.command
+        %ping
+      :_  state
+      (start-rpc-thread [%get-info ~])
+    ::
+        %set-configuration
+      =.  config.state  config.command
+      `state
+    ::
+        %open-channel
+      :_  state
+      (start-rpc-thread [%open-channel +.command])
+    ::
+        %close-channel
+      :_  state
+      (start-rpc-thread [%close-channel +.command])
+    ==
   ::
   ++  handle-request
     |=  [id=@ta =inbound-request:eyre]
@@ -102,7 +121,7 @@
     =/  body=@t    +.octs
     =/  =json      (need (de-json:html body))
     =/  =channel-update:rpc:volt
-      (channel-update:from-json:provider:libvolt json)
+      (channel-update-from-json:rpc:libvolt json)
     ?-    -.channel-update
         %open-channel
       [(no-content id) state]
@@ -118,7 +137,6 @@
     ::
         %pending-channel
       [(no-content id) state]
-
     ==
   ::
   ++  handle-htlc-update
@@ -147,7 +165,11 @@
       %thread
     ?+    -.sign  (on-agent:def wire sign)
         %poke-ack
-      `this
+      ?~  p.sign
+        %-  (slog leaf+"Thread started!" ~)
+       `this
+       %-  (slog leaf+"Thread failed!" u.p.sign)
+       `this
     ::
         %fact
       `this
