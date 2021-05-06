@@ -17,7 +17,7 @@
     (slog leaf+"Version: {(trip version.res)}" ~)
   ::
       %open-channel
-    (slog leaf+"Funding txid: {(trip (en:base64:mimes:html funding-txid.res))}  Index: {(trip (scot %ud index.res))}" ~)
+    (slog leaf+"Funding txid: {(trip (en:base64:mimes:html funding-txid.res))}  Index: {(trip (scot %ud output-index.res))}" ~)
   ::
       %close-channel
     (slog leaf+"Closed!" ~)
