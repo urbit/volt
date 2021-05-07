@@ -80,13 +80,13 @@
     |=  =command:provider:volt
     ^-  (quip card _state)
     ?-    -.command
-        %ping
-      :_  state
-      (start-rpc-thread [%get-info ~])
-    ::
         %set-configuration
       =.  config.state  config.command
       `state
+    ::
+        %ping
+      :_  state
+      (start-rpc-thread [%get-info ~])
     ::
         %open-channel
       :_  state
@@ -185,16 +185,24 @@
         %-  (slog leaf+"Thread failed: {(trip p.err)}" q.err)
         `this
           %thread-done
-        =/  res  (trip !<(term q.cage.sign))
-        %-  (slog leaf+"Result: {res}" ~)
-        `this
+        (handle-rpc-response !<(response:rpc:volt q.cage.sign))
       ==
     ==
   ==
-  ++  handle-rpc-result
-    |=  =result:rpc:volt
+  ++  handle-rpc-response
+    |=  =response:rpc:volt
     ^-  (quip card _this)
-    `this
+    ?-    -.response
+        %&
+      =/  =result:rpc:volt  +.response
+      %-  (slog leaf+"RPC ok!" ~)
+      `this
+    ::
+        %|
+      =/  =error:rpc:volt  +.response
+      %-  (slog leaf+"RPC Error: {(trip message.error)}" ~)
+      `this
+    ==
   --
 ::
 ++  on-peek   on-peek:def
