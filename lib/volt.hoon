@@ -49,99 +49,79 @@
     ++  channel-update
       |=  =json
       |^  ^-  channel-update:rpc:volt
-      ?+  (update-type json)  ~|('Unknown update type' !!)
-        %'OPEN_CHANNEL'           [%open-channel (open-channel json)]
-        %'CLOSED_CHANNEL'         [%closed-channel (closed-channel json)]
-        %'ACTIVE_CHANNEL'         [%active-channel (active-channel json)]
-        %'INACTIVE_CHANNEL'       [%inactive-channel (inactive-channel json)]
-        %'PENDING_OPEN_CHANNEL'   [%pending-channel (pending-channel json)]
+      ?+    (update-type json)  ~|('Unknown update type' !!)
+          %'OPEN_CHANNEL'
+        [%open-channel (open-channel json)]
+      ::
+          %'CLOSED_CHANNEL'
+        [%closed-channel (closed-channel json)]
+      ::
+          %'ACTIVE_CHANNEL'
+        [%active-channel (active-channel json)]
+      ::
+          %'INACTIVE_CHANNEL'
+        [%inactive-channel (inactive-channel json)]
+      ::
+          %'PENDING_OPEN_CHANNEL'
+        [%pending-channel (pending-channel json)]
       ==
+      ++  result
+        |*  a=fist
+        (ot ~[['result' a]])
+      ::
       ++  update-type
-        %-  ot
-        :~
-        :-  'result'
-          %-  ot  ~[['type' so]]
-        ==
+        %-  result
+        (ot ~[['type' so]])
+      ::
+      ++  channel-data
+        |*  [k=cord a=fist]
+        %-  result
+        (ot ~[[k a]])
       ::
       ++  active-channel
+        %+  channel-data  'active_channel'
         %-  ot
-        :~
-        :-  'result'
-          %-  ot
-          :~
-          :-  'active_channel'
-            %-  ot
-              :~  ['funding_txid_bytes' (su parse:base64:mimes:html)]
-                  ['output_index' ni]
-              ==
-          ==
+        :~  ['funding_txid_bytes' (su parse:base64:mimes:html)]
+            ['output_index' ni]
         ==
       ::
       ++  inactive-channel
+        %+  channel-data  'inactive_channel'
         %-  ot
-        :~
-        :-  'result'
-          %-  ot
-          :~
-          :-  'inactive_channel'
-            %-  ot
-              :~  ['funding_txid_bytes' (su parse:base64:mimes:html)]
-                  ['output_index' ni]
-              ==
-          ==
+        :~  ['funding_txid_bytes' (su parse:base64:mimes:html)]
+            ['output_index' ni]
         ==
       ::
       ++  closed-channel
+        %+  channel-data  'closed_channel'
         %-  ot
-        :~
-        :-  'result'
-          %-  ot
-          :~
-          :-  'closed_channel'
-            %-  ot
-            :~  ['channel_point' so]
-                ['chan_id' so]
-                ['chain_hash' so]
-                ['closing_tx_hash' so]
-                ['remote_pubkey' so]
-                ['close_type' so]
-            ==
-          ==
+        :~  ['channel_point' so]
+            ['chan_id' so]
+            ['chain_hash' so]
+            ['closing_tx_hash' so]
+            ['remote_pubkey' so]
+            ['close_type' so]
         ==
       ::
       ++  pending-channel
+        %+  channel-data  'pending_open_channel'
         %-  ot
-        :~
-        :-  'result'
-          %-  ot
-          :~
-          :-  'pending_open_channel'
-            %-  ot
-            :~  ['txid' (su parse:base64:mimes:html)]
-                ['output_index' ni]
-            ==
-          ==
+        :~  ['txid' (su parse:base64:mimes:html)]
+            ['output_index' ni]
         ==
       ::
       ++  open-channel
+        %+  channel-data  'open_channel'
         %-  ot
-        :~
-        :-  'result'
-          %-  ot
-          :~
-          :-  'open_channel'
-            %-  ot
-            :~  ['active' bo]
-                ['remote_pubkey' so]
-                ['channel_point' so]
-                ['chan_id' so]
-                ['capacity' (su dim:ag)]
-                ['local_balance' (su dim:ag)]
-                ['remote_balance' (su dim:ag)]
-                ['commit_fee' (su dim:ag)]
-                ['total_satoshis_sent' (su dim:ag)]
-            ==
-          ==
+        :~  ['active' bo]
+            ['remote_pubkey' so]
+            ['channel_point' so]
+            ['chan_id' so]
+            ['capacity' (su dim:ag)]
+            ['local_balance' (su dim:ag)]
+            ['remote_balance' (su dim:ag)]
+            ['commit_fee' (su dim:ag)]
+            ['total_satoshis_sent' (su dim:ag)]
         ==
       --
     ::

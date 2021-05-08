@@ -131,19 +131,19 @@
     ^-  (quip card _state)
     ?-    -.channel-update
         %open-channel
-      `state
+      [(no-content id) state]
     ::
         %closed-channel
-      `state
+      [(no-content id) state]
     ::
         %active-channel
-      `state
+      [(no-content id) state]
     ::
         %inactive-channel
-      `state
+      [(no-content id) state]
     ::
         %pending-channel
-      `state
+      [(no-content id) state]
     ==
   ::
   ++  handle-htlc-update
