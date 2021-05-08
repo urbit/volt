@@ -119,7 +119,7 @@
       %+  bind  (request-json request.inbound-request)
       |=  =json
       ?:  =(url.request.inbound-request '/~volt-channels')
-        =/  =channel-update:rpc:volt  (channel-update-from-json:rpc:libvolt json)
+        =/  =channel-update:rpc:volt  (channel-update:dejs:rpc:libvolt json)
         (update-channel id channel-update)
       ::
       ?>  =(url.request.inbound-request '/~volt-htlcs')
