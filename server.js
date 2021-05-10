@@ -3,57 +3,113 @@
 const shipHost = process.env.SHIP_HOST
 const shipPort = process.env.SHIP_PORT
 const lndDir = process.env.LND_DIR
-const lndPort = process.env.LND_PORT
+const lndHost = process.env.LND_HOST
 const network = process.env.BTC_NETWORK
 
-const express = require('express')
 const fs = require('fs')
-const WebSocket = require('ws')
 const http = require('http')
+const grpc = require('grpc')
+const protoLoader = require('@grpc/proto-loader')
+const express = require('express')
 
-const macaroon = fs.readFileSync(
+process.env.GRPC_SSL_CIPHER_SUITES = 'HIGH+ECDSA'
+
+let macaroon = fs.readFileSync(
     `${lndDir}/data/chain/bitcoin/${network}/admin.macaroon`
 ) .toString('hex');
 
-const sendToShip = (path) => {
-    return (body) => {
-	let options = {
-	    hostname: shipHost,
-	    port: shipPort,
-	    path: path,
-	    method: 'POST',
-	    headers: {
-		'Content-Type': 'application/json',
-		'Content-Length': body.length
+let loaderOptions = {
+    keepCase: true,
+    longs: String,
+    enums: String,
+    defaults: true,
+    oneoffs: true
+}
+
+let packagedef = protoLoader.loadSync(['rpc.proto', 'router.proto'], loaderOptions)
+let rpcpkg = grpc.loadPackageDefinition(packagedef)
+let routerrpc = rpcpkg.routerrpc
+let lnrpc = rpcpkg.lnrpc
+
+let cert = fs.readFileSync(`${lndDir}/tls.cert`)
+let sslCreds = grpc.credentials.createSsl(cert)
+let macaroonCreds = grpc.credentials.createFromMetadataGenerator (
+    function(args, callback) {
+	let metadata = new grpc.Metadata()
+	metadata.add('macaroon', macaroon)
+	callback(null, metadata)
+    }
+)
+let creds = grpc.credentials.combineChannelCredentials(sslCreds, macaroonCreds)
+
+let lightning = new lnrpc.Lightning(lndHost, creds)
+let router = new routerrpc.Router(lndHost, creds)
+
+let makeRequestOptions = (path, data) => {
+    let options = {
+	rejectUnauthorized: false,
+	requestCert: true,
+	hostname: shipHost,
+	port: shipPort,
+	path: path,
+	method: 'POST',
+	headers: {
+	    'Content-Type': 'application/json',
+	    'Content-Length': data.length
+	}
+    }
+    return options
+}
+
+let serialize = (obj) => {
+    let encodeBytes = (obj) => {
+	for (let k in obj) {
+	    if (Buffer.isBuffer(obj[k])) {
+		obj[k] = obj[k].toString('base64')
+	    } else if (typeof obj[k] == "object") {
+		encodeBytes(obj[k])
 	    }
 	}
-	console.log(body)
-	let req = http.request(options, res => {
-	    console.log(`status: ${res.statusCode}`)
-	    res.on('data', data => {
-		process.stdout.write(data)
-	    })
-	})
-	req.on('error', error => { console.error(error) })
-	req.write(body)
-	req.end()
     }
+    encodeBytes(obj)
+    return JSON.stringify(obj)
 }
 
-const streamToShip = (lndUrl, shipPath) => {
-    let sock = new WebSocket(lndUrl, {
-	rejectUnauthorized: false,
-	headers: {
-	    'Grpc-Metadata-Macaroon': macaroon,
-	},
+let chans = lightning.subscribeChannelEvents({})
+chans.on('data', data => {
+    let body = serialize(data)
+    console.log(body)
+    let options = makeRequestOptions('/~volt-channels', body)
+    let req = http.request(options, res => {
+	console.log(`status: ${res.statusCode}`)
+	res.on('data', resp => {
+	    process.stdout.write(resp)
+	})
     })
-    sock.on('open', () => { console.log(`Connected: ${lndUrl}`) })
-    sock.on('error', (err) => { console.error(err) })
-    sock.on('message', sendToShip(shipPath))
-    return sock
-}
+    req.on('error', error => { console.error(error) })
+    req.write(body)
+    req.end()
+})
+chans.on('status', status => { console.log(status) })
+chans.on('end', () => {})
 
-const chanUrl = `ws://localhost:${lndPort}/v1/channels/subscribe?method=GET`
-const chans = streamToShip (chanUrl, '/~volt-channels')
+let htlc = router.HtlcInterceptor({})
+htlc.on('data', data => {
+    let body = serialize(body)
+    console.log(body)
+    let options = makeRequestOptions('~/volt-htlcs', body)
+    let req = http.request(options, res => {
+	console.log(`status: ${res.statusCode}`)
+	res.on('data', data => {
+	    let body = JSON.parse(data)
+	    htlc.write(body)
+	})
+    })
+    req.on('error', error => { console.error(error) })
+    req.write(body)
+    req.end()
+})
+htlc.on('status', status => { console.log(status) })
+htlc.on('end', () => {})
 
 // const app = express()

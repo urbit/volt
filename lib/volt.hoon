@@ -65,18 +65,12 @@
           %'PENDING_OPEN_CHANNEL'
         [%pending-channel (pending-channel json)]
       ==
-      ++  result
-        |*  a=fist
-        (ot ~[['result' a]])
-      ::
       ++  update-type
-        %-  result
-        (ot ~[['type' so]])
+        %-  ot  ~[['type' so]]
       ::
       ++  channel-data
         |*  [k=cord a=fist]
-        %-  result
-        (ot ~[[k a]])
+        %-  ot  ~[[k a]]
       ::
       ++  active-channel
         %+  channel-data  'active_channel'
