@@ -78,7 +78,6 @@ let serialize = (obj) => {
 let chans = lightning.subscribeChannelEvents({})
 chans.on('data', data => {
     let body = serialize(data)
-    console.log(body)
     let options = makeRequestOptions('/~volt-channels', body)
     let req = http.request(options, res => {
 	console.log(`status: ${res.statusCode}`)
@@ -96,12 +95,12 @@ chans.on('end', () => {})
 let htlc = router.HtlcInterceptor({})
 htlc.on('data', data => {
     let body = serialize(body)
-    console.log(body)
     let options = makeRequestOptions('~/volt-htlcs', body)
     let req = http.request(options, res => {
 	console.log(`status: ${res.statusCode}`)
 	res.on('data', data => {
 	    let body = JSON.parse(data)
+	    body['preimage'] = Buffer.from(body['preimage'], 'base64')
 	    htlc.write(body)
 	})
     })
