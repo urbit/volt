@@ -91,6 +91,39 @@
         output-index=@ud
     ==
   ::
+  +$  forward-htlc-intercept-request
+    $:  incoming-circuit-key=circuit-key
+        incoming-amount-msat=sats
+        incoming-expiry=@ud
+        payment-hash=octs
+        outgoing-requested-chan-id=@ud
+        outgoing-amount-msat=sats
+        outgoing-expiry=@ud
+        custom-records=(list custom-record-entry)
+        onion-blob=octs
+    ==
+  ::
+  +$  custom-record-entry
+    $:  key=@ud
+        value=octs
+    ==
+  ::
+  +$  circuit-key
+    $:  chan-id=@ud
+        htlc-id=@ud
+    ==
+  ::
+  +$  forward-htlc-intercept-response
+    $:  incoming-circuit-key=circuit-key
+        action=resolve-hold-forward-action
+        preimage=octs
+    ==
+  ::
+  +$  resolve-hold-forward-action
+    $%  %settle
+        %fail
+        %resume
+    ==
   --
 ::
 ::  provider types
