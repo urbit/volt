@@ -41,6 +41,21 @@
             ['final_cltv_delta' (numb 0)]
         ==
       --
+    ++  forward-htlc-intercept-response
+      |=  resp=forward-htlc-intercept-response:rpc:volt
+      |^  ^-  json
+      %-  pairs
+      :~  ['incoming_circuit_key' (circuit-key incoming-circuit-key.resp)]
+          ['action' [%s action.resp]]
+          ['preimage' [%s (en:base64:mimes:html preimage.resp)]]
+      ==
+      ++  circuit-key
+        |=  =circuit-key:rpc:volt
+        %-  pairs
+        :~  ['chan_id' (numb chan-id.circuit-key)]
+            ['htlc_id' (numb htlc-id.circuit-key)]
+        ==
+      --
     --
   ::
   ++  dejs
@@ -116,6 +131,34 @@
             ['remote_balance' (su dim:ag)]
             ['commit_fee' (su dim:ag)]
             ['total_satoshis_sent' (su dim:ag)]
+        ==
+      --
+    ::
+    ++  forward-htlc-intercept-request
+      |=  =json
+      |^  ^-  forward-htlc-intercept-request:rpc:volt
+      %.  json
+      %-  ot
+      :~  ['incoming_circuit_key' circuit-key]
+          ['incoming_amount_msat' ni]
+          ['incoming_expiry' ni]
+          ['payment_hash' (su parse:base64:mimes:html)]
+          ['outgoing_requested_chan_id' ni]
+          ['outgoing_amount_msat' ni]
+          ['outgoing_expiry' ni]
+          ['custom_records' (ar custom-record)]
+          ['onion_blob' (su parse:base64:mimes:html)]
+      ==
+      ++  circuit-key
+        %-  ot
+        :~  ['chan_id' ni]
+            ['htlc_id' ni]
+        ==
+      ::
+      ++  custom-record
+        %-  ot
+        :~  ['key' ni]
+            ['value' (su parse:base64:mimes:html)]
         ==
       --
     ::

@@ -120,9 +120,9 @@
     ==
   ::
   +$  resolve-hold-forward-action
-    $%  %settle
-        %fail
-        %resume
+    $?  %'SETTLE'
+        %'FAIL'
+        %'RESUME'
     ==
   --
 ::
