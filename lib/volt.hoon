@@ -197,7 +197,6 @@
     ++  error
       |=  jon=json
       ^-  error:rpc:volt
-      =,  dejs:format
       %.  jon
       %-  ot
       :~  [%code ni]
@@ -211,17 +210,20 @@
     ?-    -.act
         %get-info
       %-  get-request
-      (url '/v1/getinfo' '')
+      (url '/getinfo' '')
     ::
         %open-channel
-      (post-request (url '/v1/channels' '') act)
+      (post-request (url '/channels' '') act)
     ::
         %close-channel
+      =/  txid=@t  (en:base64:mimes:html funding-txid.act)
+      =/  oidx=@t  (scot %ud output-index.act)
+      =/  parms    (cat 3 (cat 3 txid '/') oidx)
       %-  delete-request
-      (url '/v1/channels/' (en:base64:mimes:html chid.act))
+      (url '/channels/' parms)
     ::
         %send-payment
-      (post-request (url '/v2/router/send' '') act)
+      (post-request (url '/send_payment' '') act)
     ::
     ==
     ++  url

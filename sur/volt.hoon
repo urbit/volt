@@ -5,7 +5,7 @@
 ::
 +$  pubkey  octs
 +$  txid  octs
-+$  chid  octs
++$  chid  @ud
 +$  sats  @ud
 ::
 +$  channel-counterparty
@@ -18,7 +18,7 @@
   +$  action
     $%  [%get-info ~]
         [%open-channel node=pubkey local-amount=sats push-amount=sats]
-        [%close-channel =chid]
+        [%close-channel funding-txid=txid output-index=@ud]
         [%send-payment =invoice]
     ==
   ::
@@ -139,12 +139,12 @@
     $%  [%ping ~]
         [%set-configuration =config]
         [%open-channel to=pubkey local-amt=sats push-amt=sats]
-        [%close-channel =chid]
+        [%close-channel funding-txid=txid output-index=@ud]
     ==
   ::
   +$  action
     $%  [%open-channel to=channel-counterparty local-amt=sats push-amt=sats]
-        [%close-channel =chid]
+        [%close-channel funding-txid=txid output-index=@ud]
     ==
   ::
   --

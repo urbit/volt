@@ -119,7 +119,8 @@
       %+  bind  (request-json request.inbound-request)
       |=  =json
       ?:  =(url.request.inbound-request '/~volt-channels')
-        =/  =channel-update:rpc:volt  (channel-update:dejs:rpc:libvolt json)
+        =/  =channel-update:rpc:volt
+          (channel-update:dejs:rpc:libvolt json)
         (update-channel id channel-update)
       ::
       ?>  =(url.request.inbound-request '/~volt-htlcs')
@@ -151,7 +152,7 @@
   ++  handle-htlc
     |=  [id=@ta htlc=forward-htlc-intercept-request:rpc:volt]
     ^-  (quip card _state)
-    `state
+    [(no-content id) state]
   --
 ::
 ++  on-arvo
