@@ -86,9 +86,9 @@ let sendToShip = (path) => {
 	let options = makeRequestOptions(path, body)
 	let req = http.request(options, res => {
 	    if (res.statusCode == 201)
-		console.log(`${path}: OK`)
+		console.log(`${path}: got OK`)
 	    else
-		console.error(`${path}: ERR (${res.statusCode})`)
+		console.error(`${path}: got ERR (${res.statusCode})`)
 	})
 	req.on('error', error => { console.error(error) })
 	req.write(body)

@@ -20,6 +20,8 @@
         [%open-channel node=pubkey local-amount=sats push-amount=sats]
         [%close-channel funding-txid=txid output-index=@ud]
         [%send-payment =invoice]
+        [%settle-htlc =circuit-key preimage=octs]
+        [%fail-htlc =circuit-key]
     ==
   ::
   +$  result
@@ -27,6 +29,8 @@
         [%open-channel channel-point]
         [%close-channel ~]
         [%send-payment ~]
+        [%settle-htlc ~]
+        [%fail-htlc ~]
     ==
   ::
   +$  error
@@ -116,7 +120,7 @@
   +$  forward-htlc-intercept-response
     $:  incoming-circuit-key=circuit-key
         action=resolve-hold-forward-action
-        preimage=octs
+        preimage=(unit octs)
     ==
   ::
   +$  resolve-hold-forward-action

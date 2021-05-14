@@ -21,6 +21,11 @@
           %send-payment
         (send-payment +.act)
       ::
+          %settle-htlc
+        (settle-htlc +.act)
+      ::
+          %fail-htlc
+        (fail-htlc +.act)
       ==
       ++  open-channel
         |=  [=pubkey:volt local-amt=sats:volt push-amt=sats:volt]
@@ -40,20 +45,30 @@
             ['payment_hash' [%s (en:base64:mimes:html r-hash.invoice)]]
             ['final_cltv_delta' (numb 0)]
         ==
-      --
-    ++  forward-htlc-intercept-response
-      |=  resp=forward-htlc-intercept-response:rpc:volt
-      |^  ^-  json
-      %-  pairs
-      :~  ['incoming_circuit_key' (circuit-key incoming-circuit-key.resp)]
-          ['action' [%s action.resp]]
-          ['preimage' [%s (en:base64:mimes:html preimage.resp)]]
-      ==
-      ++  circuit-key
-        |=  =circuit-key:rpc:volt
+      ::
+      ++  settle-htlc
+        |=  [ck=circuit-key:rpc:volt preimage=octs]
+        ^-  json
         %-  pairs
-        :~  ['chan_id' (numb chan-id.circuit-key)]
-            ['htlc_id' (numb htlc-id.circuit-key)]
+        :~  ['circuit_key' (circuit-key ck)]
+            ['action' [%s 'SETTLE']]
+            ['preimage' [%s (en:base64:mimes:html preimage)]]
+        ==
+      ::
+      ++  fail-htlc
+        |=  ck=circuit-key:rpc:volt
+        ^-  json
+        %-  pairs
+        :~  ['circuit_key' (circuit-key ck)]
+            ['action' [%s 'FAIL']]
+        ==
+      ::
+      ++  circuit-key
+        |=  ck=circuit-key:rpc:volt
+        ^-  json
+        %-  pairs
+        :~  ['chan_id' (numb chan-id.ck)]
+            ['htlc_id' (numb htlc-id.ck)]
         ==
       --
     --
@@ -179,6 +194,12 @@
       ::
           %send-payment
         [%send-payment ~]
+      ::
+          %settle-htlc
+        [%settle-htlc ~]
+      ::
+          %fail-htlc
+        [%fail-htlc ~]
       ==
       ++  node-info
         %-  ot
@@ -224,6 +245,12 @@
     ::
         %send-payment
       (post-request (url '/send_payment' '') act)
+    ::
+        %settle-htlc
+      (post-request (url '/settle_htlc' '') act)
+    ::
+        %fail-htlc
+      (post-request (url '/settle_htlc' '') act)
     ::
     ==
     ++  url
