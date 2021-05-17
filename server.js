@@ -115,7 +115,7 @@ chans.on('status', status => { console.log(status) })
 chans.on('end', () => {})
 
 let htlc = router.HtlcInterceptor({})
-htlc.on('data', sendToShip('~/volt-htlcs'))
+htlc.on('data', sendToShip('/~volt-htlcs'))
 htlc.on('status', status => { console.log(status) })
 htlc.on('end', () => {})
 

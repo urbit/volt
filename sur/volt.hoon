@@ -103,7 +103,6 @@
         outgoing-requested-chan-id=@ud
         outgoing-amount-msat=sats
         outgoing-expiry=@ud
-        custom-records=(list custom-record-entry)
         onion-blob=octs
     ==
   ::
@@ -139,6 +138,12 @@
         macaroon=@t
     ==
   ::
+  +$  htlc
+    $:  =circuit-key:rpc
+        =channel-counterparty
+        payment-hash=octs
+    ==
+  ::
   +$  command
     $%  [%ping ~]
         [%set-configuration =config]
@@ -149,6 +154,7 @@
   +$  action
     $%  [%open-channel to=channel-counterparty local-amt=sats push-amt=sats]
         [%close-channel funding-txid=txid output-index=@ud]
+        [%preimage preimage=octs]
     ==
   ::
   --

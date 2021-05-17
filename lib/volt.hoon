@@ -155,19 +155,18 @@
       %.  json
       %-  ot
       :~  ['incoming_circuit_key' circuit-key]
-          ['incoming_amount_msat' ni]
+          ['incoming_amount_msat' (su dim:ag)]
           ['incoming_expiry' ni]
           ['payment_hash' (su parse:base64:mimes:html)]
-          ['outgoing_requested_chan_id' ni]
-          ['outgoing_amount_msat' ni]
+          ['outgoing_requested_chan_id' (su dim:ag)]
+          ['outgoing_amount_msat' (su dim:ag)]
           ['outgoing_expiry' ni]
-          ['custom_records' (ar custom-record)]
           ['onion_blob' (su parse:base64:mimes:html)]
       ==
       ++  circuit-key
         %-  ot
-        :~  ['chan_id' ni]
-            ['htlc_id' ni]
+        :~  ['chan_id' (su dim:ag)]
+            ['htlc_id' (su dim:ag)]
         ==
       ::
       ++  custom-record
