@@ -11,7 +11,7 @@
 +$  state-0
   $:  %0
       =config:provider:volt
-      pending-htlcs=(set circuit-key:rpc:volt)
+      pending-htlcs=(map circuit-key:rpc:volt forward-htlc-intercept-request:rpc:volt)
   ==
 --
 ::
@@ -83,7 +83,6 @@
     ?+    -.sign  (on-agent:def wire sign)
         %poke-ack
       ?~  p.sign
-        %-  (slog leaf+"Thread started!" ~)
         `this
       %-  (slog leaf+"Thread failed!" u.p.sign)
       `this
@@ -114,10 +113,30 @@
   |=  =action:provider:volt
   ^-  (quip card _state)
   ?-    -.action
-      %open-channel   `state
-      %close-channel  `state
-      %preimage       `state
+      %open-channel
+    `state
+  ::
+      %close-channel
+    `state
+  ::
+      %preimage
+    =/  =circuit-key:rpc:volt  +<.action
+    =/  preimage=octs          +.+.action
+    %+  fall
+      %+  bind  (~(get by pending-htlcs.state) circuit-key)
+      |=  htlc=forward-htlc-intercept-request:rpc:volt
+      =^  cards  state
+        (check-preimage htlc preimage)
+      [cards state]
+    ~|("Unknown HTLC" `state)
   ==
+::
+++  check-preimage
+  |=  [htlc=forward-htlc-intercept-request:rpc:volt preimage=octs]
+  ^-  (quip card _state)
+  :_  state
+  %-  start-rpc-thread
+  [%settle-htlc incoming-circuit-key.htlc preimage]
 ::
 ++  handle-command
   |=  =command:provider:volt
@@ -212,8 +231,8 @@
 ++  handle-htlc
   |=  [id=@ta htlc=forward-htlc-intercept-request:rpc:volt]
   ^-  (quip card _state)
-  =/  =circuit-key         incoming-circuit-key.htlc
-  =.  pending-htlcs.state  (~(put in pending-htlcs.state) circuit-key)
+  =/  =circuit-key:rpc:volt         incoming-circuit-key.htlc
+  =.  pending-htlcs.state  (~(put by pending-htlcs.state) circuit-key htlc)
   :_  state
   (no-content id)
 ::
@@ -247,10 +266,12 @@
   ::
       %settle-htlc
     ?>  ?=([%settle-htlc *] result)
+    =.  pending-htlcs.state  (~(del by pending-htlcs.state) circuit-key.result)
     `state
   ::
       %fail-htlc
     ?>  ?=([%fail-htlc *] result)
+    =.  pending-htlcs.state  (~(del by pending-htlcs.state) circuit-key.result)
     `state
   ==
 ::

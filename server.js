@@ -114,6 +114,13 @@ chans.on('data', sendToShip('/~volt-channels'))
 chans.on('status', status => { console.log(status) })
 chans.on('end', () => {})
 
+/*
+let htlc_events = router.subscribeHtlcEvents({})
+htlc_events.on('data', response => {
+  console.log(response);
+});
+*/
+
 let htlc = router.HtlcInterceptor({})
 htlc.on('data', sendToShip('/~volt-htlcs'))
 htlc.on('status', status => { console.log(status) })
@@ -171,10 +178,11 @@ app.post('/send_payment', (req, res) => {
 
 app.post('/resolve_htlc', (req, res) => {
     let body = req.body
+    console.log(req.body)
     if (body.primage)
 	body.preimage = Buffer.from(body.preimage, 'base64')
     htlc.write(body)
-    res.sendStatus(201)
+    res.status(200).send(body)
 })
 
 app.listen(port, () => console.log(`Proxy listening on port: ${port}`))

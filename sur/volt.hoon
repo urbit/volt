@@ -7,6 +7,7 @@
 +$  txid  octs
 +$  chid  @ud
 +$  sats  @ud
++$  htlc-id  @ud
 ::
 +$  channel-counterparty
   $%  [%ship ship]
@@ -29,8 +30,8 @@
         [%open-channel channel-point]
         [%close-channel ~]
         [%send-payment ~]
-        [%settle-htlc ~]
-        [%fail-htlc ~]
+        [%settle-htlc =circuit-key]
+        [%fail-htlc =circuit-key]
     ==
   ::
   +$  error
@@ -95,6 +96,22 @@
         output-index=@ud
     ==
   ::
+  +$  htlc-event
+    $:  incoming-channel-id=chid
+        outgoing-channel-id=chid
+        incoming-htlc-id=htlc-id
+        outgoing-htlc-id=htlc-id
+        timestamp-ns=@ud
+        type=event-type
+    ==
+  ::
+  +$  event-type
+    $?  %'UNKNOWN'
+        %'SEND'
+        %'RECEIVE'
+        %'FORWARD'
+    ==
+  ::
   +$  forward-htlc-intercept-request
     $:  incoming-circuit-key=circuit-key
         incoming-amount-msat=sats
@@ -138,6 +155,8 @@
         macaroon=@t
     ==
   ::
+  +$  htlc-id  @ud
+  ::
   +$  htlc
     $:  =circuit-key:rpc
         =channel-counterparty
@@ -154,7 +173,7 @@
   +$  action
     $%  [%open-channel to=channel-counterparty local-amt=sats push-amt=sats]
         [%close-channel funding-txid=txid output-index=@ud]
-        [%preimage preimage=octs]
+        [%preimage =circuit-key:rpc preimage=octs]
     ==
   ::
   --

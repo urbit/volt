@@ -195,10 +195,10 @@
         [%send-payment ~]
       ::
           %settle-htlc
-        [%settle-htlc ~]
+        [%settle-htlc circuit-key.act]
       ::
           %fail-htlc
-        [%fail-htlc ~]
+        [%fail-htlc circuit-key.act]
       ==
       ++  node-info
         %-  ot
@@ -246,10 +246,10 @@
       (post-request (url '/send_payment' '') act)
     ::
         %settle-htlc
-      (post-request (url '/settle_htlc' '') act)
+      (post-request (url '/resolve_htlc' '') act)
     ::
         %fail-htlc
-      (post-request (url '/settle_htlc' '') act)
+      (post-request (url '/resolve_htlc' '') act)
     ::
     ==
     ++  url
