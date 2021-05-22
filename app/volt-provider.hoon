@@ -51,11 +51,12 @@
   ^-  (quip card _this)
   =^  cards  state
   ?+    mark  (on-poke:def mark vase)
+      %volt-command
+    ?>  (team:title our.bowl src.bowl)
+    (handle-command:hc !<(command:provider:volt vase))
+  ::
       %volt-action
     (handle-action:hc !<(action:provider:volt vase))
-  ::
-      %volt-command
-    (handle-command:hc !<(command:provider:volt vase))
   ::
       %handle-http-request
     (handle-request:hc !<([id=@ta =inbound-request:eyre] vase))
@@ -126,7 +127,7 @@
       %+  bind  (~(get by pending-htlcs.state) circuit-key)
       |=  htlc=forward-htlc-intercept-request:rpc:volt
       =^  cards  state
-        (check-preimage htlc preimage)
+      %+  check-preimage  htlc  preimage
       [cards state]
     ~|("Unknown HTLC" `state)
   ==
@@ -134,14 +135,17 @@
 ++  check-preimage
   |=  [htlc=forward-htlc-intercept-request:rpc:volt preimage=octs]
   ^-  (quip card _state)
+  =/  hash  (sha-256l:sha preimage)
   :_  state
   %-  start-rpc-thread
+  ?.  =(hash payment-hash.htlc)
+    ~&  >>>  "Incorrect preimage for HTLC: {<incoming-circuit-key.htlc>}"
+    [%fail-htlc incoming-circuit-key.htlc]
   [%settle-htlc incoming-circuit-key.htlc preimage]
 ::
 ++  handle-command
   |=  =command:provider:volt
   ^-  (quip card _state)
-  ?>  (team:title our.bowl src.bowl)
   ?-    -.command
       %set-configuration
     =.  config.state  config.command
@@ -267,11 +271,13 @@
       %settle-htlc
     ?>  ?=([%settle-htlc *] result)
     =.  pending-htlcs.state  (~(del by pending-htlcs.state) circuit-key.result)
+    ~&  >  "settled htlc: {<circuit-key.result>}"
     `state
   ::
       %fail-htlc
     ?>  ?=([%fail-htlc *] result)
     =.  pending-htlcs.state  (~(del by pending-htlcs.state) circuit-key.result)
+    ~&  >>>  "failed htlc: {<circuit-key.result>}"
     `state
   ==
 ::
