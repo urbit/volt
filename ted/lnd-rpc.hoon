@@ -5,7 +5,7 @@
 =,  sur
 ^-  thread:spider
 |=  v=vase
-=+  !<([~ [=config:provider =action:rpc]] v)
+=+  !<([~ [=host-info:provider =action:rpc]] v)
 =/  m  (strand ,vase)
-;<  =response:rpc  bind:m  (~(send rpc:volt config) action)
+;<  =response:rpc  bind:m  (~(send rpc:volt host-info) action)
 (pure:m !>(response))

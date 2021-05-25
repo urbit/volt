@@ -1,6 +1,7 @@
 ::
 /-  volt
 /+  server, default-agent, dbug, libvolt=volt
+=,  provider:volt
 |%
 +$  card  card:agent:gall
 ::
@@ -10,8 +11,9 @@
 ::
 +$  state-0
   $:  %0
-      =config:provider:volt
-      pending-htlcs=(map circuit-key:rpc:volt forward-htlc-intercept-request:rpc:volt)
+      =host-info
+      channels=(map chan-id channel-info)
+      htlcs=(map circuit-key htlc)
   ==
 --
 ::
@@ -27,11 +29,18 @@
     hc    ~(. +> bowl)
 ::
 ++  on-init
-  ^-  (quip card _this)
-  :_  this
+  |^  ^-  (quip card _this)
+  ~&  >  '%volt-provider initialized successfully'
+  :_  this(host-info default-host-info)
   :~  [%pass /bind %arvo %e %connect [~ /'~volt-channels'] %volt-provider]
       [%pass /bind %arvo %e %connect [~ /'~volt-htlcs'] %volt-provider]
   ==
+  ++  default-host-info
+    :*  api-url=''
+        connected=%.n
+        clients=*(set ship)
+    ==
+  --
 ::
 ++  on-save
   ^-  vase
@@ -40,22 +49,19 @@
 ++  on-load
   |=  old-state=vase
   ^-  (quip card _this)
-  =/  old  !<(versioned-state old-state)
-  ?-    -.old
-      %0
-    `this(state old)
-  ==
+  ~&  >  '%volt-provider recompiled successfully'
+  `this(state !<(versioned-state old-state))
 ::
 ++  on-poke
   |=  [=mark =vase]
   ^-  (quip card _this)
   =^  cards  state
   ?+    mark  (on-poke:def mark vase)
-      %volt-command
+      %volt-provider-command
     ?>  (team:title our.bowl src.bowl)
     (handle-command:hc !<(command:provider:volt vase))
   ::
-      %volt-action
+      %volt-provider-action
     (handle-action:hc !<(action:provider:volt vase))
   ::
       %handle-http-request
@@ -68,10 +74,13 @@
   ^-  (quip card _this)
   ?:  ?=(%eyre -.sign-arvo)
     `this
+  ?:  ?=([%ping-timer *] wire)
+    [do-ping:hc this]
   (on-arvo:def wire sign-arvo)
 ::
 ++  on-watch
   |=  =path
+  ^-  (quip card _this)
   ?:  ?=([%http-response *] path)
     `this
   (on-watch:def path)
@@ -113,62 +122,68 @@
 ++  handle-action
   |=  =action:provider:volt
   ^-  (quip card _state)
-  ?-    -.action
-      %open-channel
+  ?.  ?|(connected.host-info ?=(%ping -.action))
+    ~&  >>>  "not connected to LND"
     `state
-  ::
-      %close-channel
-    `state
-  ::
-      %preimage
-    =/  =circuit-key:rpc:volt  +<.action
-    =/  preimage=octs          +.+.action
-    %+  fall
-      %+  bind  (~(get by pending-htlcs.state) circuit-key)
-      |=  htlc=forward-htlc-intercept-request:rpc:volt
-      =^  cards  state
-      %+  check-preimage  htlc  preimage
-      [cards state]
-    ~|("Unknown HTLC" `state)
+  =/  cards=(list card)
+    ?-    -.action
+        %ping
+      %-  do-rpc  [%get-info ~]
+    ::
+        %settle-htlc
+      %+  settle-htlc  circuit-key.action  preimage.action
+    ::
+        %fail-htlc
+      %-  do-rpc  [%fail-htlc +.action]
   ==
+  [cards state]
 ::
-++  check-preimage
-  |=  [htlc=forward-htlc-intercept-request:rpc:volt preimage=octs]
-  ^-  (quip card _state)
-  =/  hash  (sha-256l:sha preimage)
-  :_  state
-  %-  start-rpc-thread
-  ?.  =(hash payment-hash.htlc)
-    ~&  >>>  "Incorrect preimage for HTLC: {<incoming-circuit-key.htlc>}"
-    [%fail-htlc incoming-circuit-key.htlc]
-  [%settle-htlc incoming-circuit-key.htlc preimage]
+++  settle-htlc
+  |=  [=circuit-key =preimage]
+  ^-  (list card)
+  %+  fall
+    %+  bind  (~(get by htlcs.state) circuit-key)
+    |=  =htlc
+    %-  do-rpc  (settle-htlc-action htlc preimage)
+  ~|("unknown htlc: {<circuit-key>}" ~)
+::
+++  settle-htlc-action
+  |=  [=htlc =preimage]
+  ^-  action:rpc:volt
+  ?.  =((sha-256l:sha preimage) hash.htlc)
+    ~&  >>>  "Incorrect preimage for HTLC: {<circuit-key.htlc>}"
+    [%fail-htlc circuit-key.htlc]
+  [%settle-htlc circuit-key.htlc preimage]
 ::
 ++  handle-command
-  |=  =command:provider:volt
-  ^-  (quip card _state)
+  |=  =command
+  |^  ^-  (quip card _state)
   ?-    -.command
-      %set-configuration
-    =.  config.state  config.command
-    `state
-  ::
-      %ping
-    :_  state
-    (start-rpc-thread [%get-info ~])
+      %set-url
+    :-  do-ping
+    state(host-info (mk-host-info api-url.command))
   ::
       %open-channel
-    :_  state
-    (start-rpc-thread [%open-channel +.command])
+    :-  (do-rpc [%open-channel +.command])
+    state
   ::
       %close-channel
-    :_  state
-    (start-rpc-thread [%close-channel +.command])
+    :-  (do-rpc [%close-channel +.command])
+    state
   ==
+  ++  mk-host-info
+    |=  url=@t
+    :*  api-url=url
+        connected=%.n
+        clients=*(set ship)
+    ==
+  --
 ::
-++  start-rpc-thread
+++  do-rpc
   |=  =action:rpc:volt
   ^-  (list card)
   =/  tid     `@ta`(cat 3 'thread_' (scot %uv (sham eny.bowl)))
-  =/  args     [~ `tid %lnd-rpc !>([~ config.state action])]
+  =/  args     [~ `tid %lnd-rpc !>([~ host-info.state action])]
   =/  wire     (rpc-wire action)
   :~  [%pass wire %agent [our.bowl %spider] %watch /thread-result/[tid]]
       [%pass wire %agent [our.bowl %spider] %poke %spider-start !>(args)]
@@ -208,7 +223,7 @@
     ::
     ?>  =(url.request.inbound-request '/~volt-htlcs')
       %+  handle-htlc  id
-      %-  forward-htlc-intercept-request:dejs:rpc:libvolt
+      %-  htlc-intercept-request:dejs:rpc:libvolt
       json
   [(no-content id) state]
 ::
@@ -217,28 +232,50 @@
   ^-  (quip card _state)
   ?-    -.channel-update
       %open-channel
-    [(no-content id) state]
+    ~&  >  "open channel: {<chan-id.channel-update>}"
+    =/  =chan-id  chan-id.channel-update
+    =/  =channel-info
+      :*  chan-id=chan-id
+          active=active.channel-update
+          remote-pubkey=remote-pubkey.channel-update
+      ==
+    :-  (no-content id)
+    state(channels (~(put by channels.state) chan-id channel-info))
   ::
       %closed-channel
-    [(no-content id) state]
+    ~&  >  "channel closed: {<chan-id.channel-update>}"
+    :-  (no-content id)
+    state(channels (~(del by channels.state) chan-id.channel-update))
   ::
       %active-channel
+    =/  =txid   funding-txid.channel-update
+    =/  ix=@ud  output-index.channel-update
+    ~&  >  "active channel: {<txid>}:{<ix>}"
     [(no-content id) state]
   ::
       %inactive-channel
+    =/  =txid   funding-txid.channel-update
+    =/  ix=@ud  output-index.channel-update
+    ~&  >  "inactive channel: {<txid>}:{<ix>}"
     [(no-content id) state]
   ::
       %pending-channel
+    =/  =txid   txid.channel-update
+    =/  ix=@ud  output-index.channel-update
+    ~&  >  "pending channel: {<txid>}:{<ix>}"
     [(no-content id) state]
   ==
 ::
 ++  handle-htlc
-  |=  [id=@ta htlc=forward-htlc-intercept-request:rpc:volt]
+  |=  [id=@ta req=htlc-intercept-request:rpc:volt]
   ^-  (quip card _state)
-  =/  =circuit-key:rpc:volt         incoming-circuit-key.htlc
-  =.  pending-htlcs.state  (~(put by pending-htlcs.state) circuit-key htlc)
-  :_  state
-  (no-content id)
+  =/  =circuit-key  incoming-circuit-key.req
+  =/  =htlc
+    :*  circuit-key=circuit-key
+        hash=payment-hash.req
+    ==
+  :-  (no-content id)
+  state(htlcs (~(put by htlcs.state) circuit-key htlc))
 ::
 ++  handle-rpc-response
   |=  [=wire =response:rpc:volt]
@@ -254,30 +291,27 @@
   ?+    -.wire  ~|("Unexpected RPC result" !!)
       %get-info
     ?>  ?=([%get-info *] result)
-    `state
+    `state(connected.host-info %.y)
   ::
       %open-channel
     ?>  ?=([%open-channel *] result)
+    ~&  >  "opening channel: funding-txid={<funding-txid.result>}"
     `state
   ::
       %close-channel
     ?>  ?=([%close-channel *] result)
     `state
   ::
-      %send-payment
-    ?>  ?=([%send-payment *] result)
-    `state
-  ::
       %settle-htlc
     ?>  ?=([%settle-htlc *] result)
-    =.  pending-htlcs.state  (~(del by pending-htlcs.state) circuit-key.result)
-    ~&  >  "settled htlc: {<circuit-key.result>}"
+    =.  htlcs.state  (~(del by htlcs.state) circuit-key.result)
+    ~&  >  "settled HTLC: {<circuit-key.result>}"
     `state
   ::
       %fail-htlc
     ?>  ?=([%fail-htlc *] result)
-    =.  pending-htlcs.state  (~(del by pending-htlcs.state) circuit-key.result)
-    ~&  >>>  "failed htlc: {<circuit-key.result>}"
+    =.  htlcs.state  (~(del by htlcs.state) circuit-key.result)
+    ~&  >>>  "failed HTLC: {<circuit-key.result>}"
     `state
   ==
 ::
@@ -286,4 +320,38 @@
   ^-  (quip card _state)
   %-  (slog leaf+"RPC Error: {(trip message.error)}" ~)
   `state
+::
+++  is-channel-active
+  |=  =chan-id
+  %+  fall
+  %+  bind  (~(get by channels.state) chan-id)
+    |=  =channel-info  active.channel-info
+  %.n
+::
+++  is-client-htlc
+  |=  [=ship =circuit-key]
+  %.n
+::
+++  is-client-channel
+  |=  [=ship =chan-id]
+  %.n
+::
+++  is-client
+  |=  user=ship
+  (~(has in clients.host-info) user)
+::
+++  start-ping-timer
+  |=  interval=@dr
+  ^-  card
+  [%pass /ping-timer %arvo %b %wait (add now.bowl interval)]
+::
+++  do-ping
+  ^-  (list card)
+  =/  =action:provider  [%ping ~]
+  :~  :*  %pass  /ping/[(scot %da now.bowl)]  %agent
+          [our.bowl %volt-provider]  %poke
+          %volt-provider-action  !>(action)
+      ==
+      (start-ping-timer ~s30)
+  ==
 --

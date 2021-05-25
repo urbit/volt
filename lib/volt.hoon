@@ -6,7 +6,7 @@
 =,  strand=strand:spider
 |%
 ++  rpc
-  |_  =config:provider:volt
+  |_  =host-info:provider:volt
   ::
   ++  enjs
     =,  enjs:format
@@ -17,9 +17,6 @@
       ?+    -.act  ~|("Unknown request type" !!)
           %open-channel
         (open-channel +.act)
-      ::
-          %send-payment
-        (send-payment +.act)
       ::
           %settle-htlc
         (settle-htlc +.act)
@@ -34,16 +31,6 @@
         :~  ['node_pubkey' [%s (en:base64:mimes:html pubkey)]]
             ['local_funding_amount' (numb local-amt)]
             ['push_sat' (numb push-amt)]
-        ==
-      ::
-      ++  send-payment
-        |=  =invoice:rpc:volt
-        ^-  json
-        %-  pairs
-        :~  ['dest' [%s (en:base64:mimes:html pubkey.invoice)]]
-            ['amt' (numb amount.invoice)]
-            ['payment_hash' [%s (en:base64:mimes:html r-hash.invoice)]]
-            ['final_cltv_delta' (numb 0)]
         ==
       ::
       ++  settle-htlc
@@ -120,10 +107,10 @@
         %+  channel-data  'closed_channel'
         %-  ot
         :~  ['channel_point' so]
-            ['chan_id' so]
+            ['chan_id' (su dim:ag)]
             ['chain_hash' so]
             ['closing_tx_hash' so]
-            ['remote_pubkey' so]
+            ['remote_pubkey' (su rule:base16:mimes:html)]
             ['close_type' so]
         ==
       ::
@@ -138,9 +125,9 @@
         %+  channel-data  'open_channel'
         %-  ot
         :~  ['active' bo]
-            ['remote_pubkey' so]
+            ['remote_pubkey' (su rule:base16:mimes:html)]
             ['channel_point' so]
-            ['chan_id' so]
+            ['chan_id' (su dim:ag)]
             ['capacity' (su dim:ag)]
             ['local_balance' (su dim:ag)]
             ['remote_balance' (su dim:ag)]
@@ -149,9 +136,9 @@
         ==
       --
     ::
-    ++  forward-htlc-intercept-request
+    ++  htlc-intercept-request
       |=  =json
-      |^  ^-  forward-htlc-intercept-request:rpc:volt
+      |^  ^-  htlc-intercept-request:rpc:volt
       %.  json
       %-  ot
       :~  ['incoming_circuit_key' circuit-key]
@@ -190,9 +177,6 @@
       ::
           %close-channel
         [%close-channel ~]
-      ::
-          %send-payment
-        [%send-payment ~]
       ::
           %settle-htlc
         [%settle-htlc circuit-key.act]
@@ -242,9 +226,6 @@
       %-  delete-request
       (url '/channels/' parms)
     ::
-        %send-payment
-      (post-request (url '/send_payment' '') act)
-    ::
         %settle-htlc
       (post-request (url '/resolve_htlc' '') act)
     ::
@@ -255,26 +236,24 @@
     ++  url
       |=  [route=@t params=@t]
       %^  cat  3
-      (cat 3 uri.config route)  params
+      (cat 3 api-url.host-info route)  params
     ::
     ++  get-request
       |=  url=@t
       ^-  request:http
-      [%'GET' url ~[['Grpc-Metadata-Macaroon' macaroon.config]] ~]
+      [%'GET' url ~ ~]
     ::
     ++  delete-request
       |=  url=@t
       ^-  request:http
-      [%'DELETE' url ~[['Grpc-Metadata-Macaroon' macaroon.config]] ~]
+      [%'DELETE' url ~ ~]
     ::
     ++  post-request
       |=  [url=@t act=action:rpc:volt]
       ^-  request:http
       :*  %'POST'
           url
-          :~  ['Grpc-Metadata-Macaroon' macaroon.config]
-              ['Content-Type' 'application/json']
-          ==
+          ~[['Content-Type' 'application/json']]
           =,  html
           %-  some
           %-  as-octt:mimes
@@ -309,5 +288,6 @@
 ::
 ++  provider
   |%
+  ::
   --
 --

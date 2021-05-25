@@ -4,15 +4,16 @@
 |%
 ::
 +$  pubkey  octs
-+$  txid  octs
-+$  chid  @ud
-+$  sats  @ud
++$  txid    octs
++$  sats    @ud
++$  chan-id  @ud
 +$  htlc-id  @ud
-::
-+$  channel-counterparty
-  $%  [%ship ship]
-      [%pubkey pubkey]
++$  circuit-key
+  $:  =chan-id
+      =htlc-id
   ==
++$  hash      octs
++$  preimage  octs
 ::
 ++  rpc
   |%
@@ -20,7 +21,6 @@
     $%  [%get-info ~]
         [%open-channel node=pubkey local-amount=sats push-amount=sats]
         [%close-channel funding-txid=txid output-index=@ud]
-        [%send-payment =invoice]
         [%settle-htlc =circuit-key preimage=octs]
         [%fail-htlc =circuit-key]
     ==
@@ -29,7 +29,6 @@
     $%  [%get-info version=@t commit-hash=@t identity-pubkey=pubkey]
         [%open-channel channel-point]
         [%close-channel ~]
-        [%send-payment ~]
         [%settle-htlc =circuit-key]
         [%fail-htlc =circuit-key]
     ==
@@ -43,18 +42,10 @@
   ::
   +$  route-hint
     $:  node-id=pubkey
-        chan-id=chid
+        =chan-id
         fee-base-msat=@ud
         fee-proportional-usat=@ud
         cltv-expiry-delta=@ud
-    ==
-  ::
-  +$  invoice
-    $:  memo=@t
-        r-primage=octs
-        r-hash=octs
-        =pubkey
-        amount=sats
     ==
   ::
   +$  channel-update
@@ -67,9 +58,9 @@
   ::
   +$  channel
     $:  active=?
-        remote-pubkey=@t
+        remote-pubkey=pubkey
         channel-point=@t
-        chan-id=@t
+        =chan-id
         capacity=sats
         local-balance=sats
         remote-balance=sats
@@ -79,10 +70,10 @@
   ::
   +$  channel-close-summary
     $:  channel-point=@t
-        chid=@t
+        =chan-id
         chain-hash=@t
         closing-tx-hash=@t
-        remote-pubkey=@t
+        remote-pubkey=pubkey
         channel-closure-type=@tas
     ==
   ::
@@ -96,50 +87,24 @@
         output-index=@ud
     ==
   ::
-  +$  htlc-event
-    $:  incoming-channel-id=chid
-        outgoing-channel-id=chid
-        incoming-htlc-id=htlc-id
-        outgoing-htlc-id=htlc-id
-        timestamp-ns=@ud
-        type=event-type
-    ==
-  ::
-  +$  event-type
-    $?  %'UNKNOWN'
-        %'SEND'
-        %'RECEIVE'
-        %'FORWARD'
-    ==
-  ::
-  +$  forward-htlc-intercept-request
+  +$  htlc-intercept-request
     $:  incoming-circuit-key=circuit-key
         incoming-amount-msat=sats
         incoming-expiry=@ud
         payment-hash=octs
-        outgoing-requested-chan-id=@ud
+        outgoing-requested-chan-id=chan-id
         outgoing-amount-msat=sats
         outgoing-expiry=@ud
         onion-blob=octs
     ==
   ::
-  +$  custom-record-entry
-    $:  key=@ud
-        value=octs
-    ==
-  ::
-  +$  circuit-key
-    $:  chan-id=@ud
-        htlc-id=@ud
-    ==
-  ::
-  +$  forward-htlc-intercept-response
+  +$  htlc-intercept-response
     $:  incoming-circuit-key=circuit-key
-        action=resolve-hold-forward-action
+        action=htlc-action
         preimage=(unit octs)
     ==
   ::
-  +$  resolve-hold-forward-action
+  +$  htlc-action
     $?  %'SETTLE'
         %'FAIL'
         %'RESUME'
@@ -150,45 +115,58 @@
 ::
 ++  provider
   |%
-  +$  config
-    $:  uri=@t
-        macaroon=@t
+  ::
+  +$  host-info
+    $:  api-url=@t
+        connected=?
+        clients=(set ship)
     ==
   ::
-  +$  htlc-id  @ud
+  +$  channel-info
+    $:  =chan-id
+        active=?
+        remote-pubkey=pubkey
+    ==
   ::
   +$  htlc
-    $:  =circuit-key:rpc
-        =channel-counterparty
-        payment-hash=octs
+    $:  =circuit-key
+        =hash
     ==
+  +$  htlcs  (map circuit-key htlc)
   ::
   +$  command
-    $%  [%ping ~]
-        [%set-configuration =config]
+    $%  [%set-url api-url=@t]
         [%open-channel to=pubkey local-amt=sats push-amt=sats]
         [%close-channel funding-txid=txid output-index=@ud]
     ==
   ::
   +$  action
-    $%  [%open-channel to=channel-counterparty local-amt=sats push-amt=sats]
-        [%close-channel funding-txid=txid output-index=@ud]
-        [%preimage =circuit-key:rpc preimage=octs]
+    $%  [%ping ~]
+        [%settle-htlc =circuit-key preimage=octs]
+        [%fail-htlc =circuit-key]
     ==
   ::
+  +$  result
+    $%  [%htlc payment-hash=octs]
+    ==
+  ::
+  +$  error
+    $%  [%rpc-error error:rpc]
+        [%not-connected ~]
+        [%bad-request ~]
+    ==
+  ::
+  +$  update  (each result error)
+  ::
+  +$  status
+    $%  [%connected ~]
+        [%disconnected ~]
+    ==
   --
 ::
 ::  client types
 ::
-+$  config
-  $:  provider=ship
-  ==
-::
-+$  action
-  $%  [%set-provider provider=ship]
-      [%open-channel ~]
-      [%send-payment to=channel-counterparty value=sats]
-      [%send-invoice ~]
-  ==
-::
+++  client
+  |%
+  --
 --
