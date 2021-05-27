@@ -1,19 +1,29 @@
 ::
 :: sur/volt.hoon
 ::
+/-  sur=bitcoin
+=,  sur
 |%
 ::
-+$  pubkey  octs
-+$  txid    octs
-+$  sats    @ud
++$  pubkey    hexb
++$  txid      hexb
++$  hash      hexb
++$  preimage  hexb
+::
++$  msats    @ud
 +$  chan-id  @ud
 +$  htlc-id  @ud
+::
 +$  circuit-key
   $:  =chan-id
       =htlc-id
   ==
-+$  hash      octs
-+$  preimage  octs
+::
++$  htlc-info
+  $:  =circuit-key  :: incoming circuit
+      =hash         :: payment hash
+      =chan-id      :: outgoing channel
+  ==
 ::
 ++  rpc
   |%
@@ -21,7 +31,7 @@
     $%  [%get-info ~]
         [%open-channel node=pubkey local-amount=sats push-amount=sats]
         [%close-channel funding-txid=txid output-index=@ud]
-        [%settle-htlc =circuit-key preimage=octs]
+        [%settle-htlc =circuit-key =preimage]
         [%fail-htlc =circuit-key]
     ==
   ::
@@ -104,11 +114,7 @@
         preimage=(unit octs)
     ==
   ::
-  +$  htlc-action
-    $?  %'SETTLE'
-        %'FAIL'
-        %'RESUME'
-    ==
+  +$  htlc-action  ?(%'SETTLE' %'FAIL' %'RESUME')
   --
 ::
 ::  provider types
@@ -125,14 +131,11 @@
   +$  channel-info
     $:  =chan-id
         active=?
+        local-balance=sats
+        remote-balance=sats
         remote-pubkey=pubkey
+        client=(unit ship)
     ==
-  ::
-  +$  htlc
-    $:  =circuit-key
-        =hash
-    ==
-  +$  htlcs  (map circuit-key htlc)
   ::
   +$  command
     $%  [%set-url api-url=@t]
@@ -142,12 +145,8 @@
   ::
   +$  action
     $%  [%ping ~]
-        [%settle-htlc =circuit-key preimage=octs]
-        [%fail-htlc =circuit-key]
-    ==
-  ::
-  +$  result
-    $%  [%htlc payment-hash=octs]
+        [%settle-htlc =htlc-info =preimage]
+        [%fail-htlc =htlc-info]
     ==
   ::
   +$  error
@@ -166,7 +165,13 @@
 ::
 ::  client types
 ::
-++  client
-  |%
-  --
++$  command
+  $%  [%set-provider provider=ship]
+  ==
+::
++$  action
+  $%  [%settle-htlc =htlc-info:provider]
+      [%fail-htlc =htlc-info:provider]
+  ==
+::
 --
