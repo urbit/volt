@@ -79,7 +79,7 @@
   %-  some
   |-
   =^  datum  bits  (pull-tagged bits)
-  =/  [tag=(unit @tD) len=@ud data=hexb]  datum
+  =/  [tag=(unit @tD) len=@ud data=^bits]  datum
   ?:  (lth wid.bits (mul 64 8))
     invoice
   =.  invoice
@@ -87,54 +87,82 @@
     ?:  =(u.tag 'p')
       ?.  =(len 52)
         =.  unknown-tags.invoice
-          (~(put by unknown-tags.invoice) u.tag data)
+        %.  [u.tag (to-hexb data)]
+        %~  put  by  unknown-tags.invoice
         invoice
-      =.  payment-hash.invoice  data
+      =.  payment-hash.invoice
+      %-  to-hexb  data
       invoice
     ::
     ?:  =(u.tag 's')
       ?.  =(len 52)
         =.  unknown-tags.invoice
-          (~(put by unknown-tags.invoice) u.tag data)
+        %.  [u.tag (to-hexb data)]
+        %~  put  by  unknown-tags.invoice
         invoice
-      =.  payment-secret.invoice  (some data)
+      =.  payment-secret.invoice
+      %-  some
+      %-  to-hexb  data
       invoice
     ::
     ?:  =(u.tag 'd')
       =.  description.invoice
-        %-  some
-        ^-  @t
-        (swp 3 dat.data)
+      %-  some
+      ^-  @t
+      %+  swp  3  dat.data
       invoice
     ::
     ?:  =(u.tag 'n')
       ?.  =(len 53)
         =.  unknown-tags.invoice
-          (~(put by unknown-tags.invoice) u.tag data)
+        %.  [u.tag (to-hexb data)]
+        %~  put  by  unknown-tags.invoice
         invoice
-      =.  pubkey.invoice  data
+      =.  pubkey.invoice
+      %-  to-hexb  data
       invoice
     ::
     ?:  =(u.tag 'x')
-      =.  expiry.invoice  `@dr`dat.data
+      =.  expiry.invoice
+      `@dr`dat.data
       invoice
     ::
     ?:  =(u.tag 'c')
-      =.  min-final-cltv-expiry.invoice  `@ud`dat.data
+      =.  min-final-cltv-expiry.invoice
+      `@ud`dat.data
       invoice
     ::
     ?:  =(u.tag 'f')
-      =.  fallback-address.invoice  (some data)
+      =.  fallback-address.invoice
+      %-  some
+      %-  to-hexb  data
       invoice
     ::
     ?:  =(u.tag 'r')
-      invoice
+      =|  routes=(list route)
+      |-
+      =|  =route
+      ?:  (lth wid.data route-lent)
+        %=(invoice route (flop routes))
+      =^  pkey  data  (read-bits 264 data)
+      =^  chid  data  (read-bits 64 data)
+      =^  febs  data  (read-bits 32 data)
+      =^  fert  data  (read-bits 32 data)
+      =^  xpry  data  (read-bits 16 data)
+      =:  pubkey.route             (to-hexb pkey)
+          short-channel-id.route   dat.chid
+          feebase.route            dat.febs
+          feerate.route            dat.fert
+          cltv-expiry-delta.route  dat.xpry
+      ==
+      $(routes [route routes], data data)
     ::
     ?:  =(u.tag '9')
       invoice
     ::
     =.  unknown-tags.invoice
-      (~(put by unknown-tags.invoice) u.tag data)
+    %.  [u.tag (to-hexb data)]
+    %~  put  by  unknown-tags.invoice
     invoice
   $(bits bits)
   ::
@@ -144,18 +172,25 @@
   ::
   ++  pull-tagged
     |=  in=bits
-    ^-  [[(unit @tD) @ud hexb] bits]
+    ^-  [[(unit @tD) @ud bits] bits]
     =^  typ  in  (read-bits 5 in)
     =^  hig  in  (read-bits 5 in)
     =^  low  in  (read-bits 5 in)
     =/  len      (add (mul dat.hig 32) dat.low)
     =^  dta  in  (read-bits (mul len 5) in)
     =/  tag  (value-to-charset:bech32 dat.typ)
-    [[tag len (to-hexb dta)] in]
+    [[tag len dta] in]
   ::
   ++  to-hexb
     |=  =bits
     [wid=(div wid.bits 8) dat=`@ux`(rsh [0 (mod wid.bits 8)] dat.bits)]
+  ::
+  ++  route-lent  ^~
+    %+  add  264
+    %+  add  64
+    %+  add  32
+    %+  add  32
+    16
   ::
   ++  valid-amount
     |=  amt=(unit amount)
