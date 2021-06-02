@@ -58,7 +58,8 @@
   %+  biff  (decode-raw:bech32 body)
   |=  raw=raw-decoded:bech32
   =/  =bits  (from-atoms:bit 5 data.raw)
-  ?:  (lth wid.bits (mul 65 8))
+  =*  signature-lent  (mul 65 8)
+  ?:  (lth wid.bits signature-lent)
     ~&  >>>  'too short to contain a signature'
     ~
   %+  biff  (rust hrp.raw hum)
@@ -73,15 +74,15 @@
       expiry.invoice     ~s3600
       min-final-cltv-expiry.invoice  18
   ==
+  =.  bits  (take:bit (sub wid.bits signature-lent) bits)
   =^  date  bits  (read-bits 35 bits)
   =.  timestamp.invoice  (from-unix:chrono:userlib dat.date)
   ::
-  %-  some
   |-
+  ?~  wid.bits  (some invoice)
+  ::
   =^  datum  bits  (pull-tagged bits)
   =/  [tag=(unit @tD) len=@ud data=^bits]  datum
-  ?:  (lth wid.bits (mul 64 8))
-    invoice
   =.  invoice
     ?~  tag  invoice
     ?:  =(u.tag 'p')
@@ -106,10 +107,11 @@
       invoice
     ::
     ?:  =(u.tag 'd')
+      =/  bytes  (to-hexb data)
       =.  description.invoice
       %-  some
       ^-  @t
-      %+  swp  3  dat.data
+      %+  swp  3  dat.bytes
       invoice
     ::
     ?:  =(u.tag 'n')
@@ -142,7 +144,7 @@
       =|  routes=(list route)
       |-
       =|  =route
-      ?:  (lth wid.data route-lent)
+      ?~  wid.data
         %=(invoice route (flop routes))
       =^  pkey  data  (read-bits 264 data)
       =^  chid  data  (read-bits 64 data)
@@ -178,7 +180,7 @@
     =^  low  in  (read-bits 5 in)
     =/  len      (add (mul dat.hig 32) dat.low)
     =^  dta  in  (read-bits (mul len 5) in)
-    =/  tag  (value-to-charset:bech32 dat.typ)
+    =/  tag      (value-to-charset:bech32 dat.typ)
     [[tag len dta] in]
   ::
   ++  to-hexb
@@ -204,10 +206,10 @@
   ++  net
     %+  sear  ~(get by networks)
     ;~  pose
-      (jest 'bc')
-      (jest 'tb')
-      (jest 'tbs')
       (jest 'bcrt')
+      (jest 'bc')
+      (jest 'tbs')
+      (jest 'tb')
     ==
   ++  mpy  (cook multiplier (mask "munp"))
   ++  amt
