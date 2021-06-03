@@ -52,6 +52,8 @@
       cltv-expiry-delta=@ud
   ==
 ::
+::  decode lightning payment request
+::
 ++  de
   |=  body=cord
   |^  ^-  (unit invoice)
@@ -62,11 +64,13 @@
   ?:  (lth wid.bits signature-lent)
     ~&  >>>  'too short to contain a signature'
     ~
+  ::
   %+  biff  (rust hrp.raw hum)
   |=  [=network amt=(unit amount)]
   ?.  (valid-amount amt)
     ~&  >>>  'invalid amount'
     ~
+  ::
   =|  =invoice
   =:  network.invoice    network
       amount.invoice     amt
@@ -74,78 +78,60 @@
       expiry.invoice     ~s3600
       min-final-cltv-expiry.invoice  18
   ==
+  ::
   =.  bits  (take:bit (sub wid.bits signature-lent) bits)
   =^  date  bits  (read-bits 35 bits)
   =.  timestamp.invoice  (from-unix:chrono:userlib dat.date)
   ::
   |-
   ?~  wid.bits  (some invoice)
-  ::
   =^  datum  bits  (pull-tagged bits)
-  =/  [tag=(unit @tD) len=@ud data=^bits]  datum
-  =.  invoice
+  %_  $
+    bits     bits
+    invoice  %+(add-tagged invoice datum)
+  ==
+  ::
+  ++  add-tagged
+    |=  [=invoice tag=(unit @tD) len=@ud data=bits]
     ?~  tag  invoice
     ?:  =(u.tag 'p')
       ?.  =(len 52)
-        =.  unknown-tags.invoice
-        %.  [u.tag (to-hexb data)]
-        %~  put  by  unknown-tags.invoice
-        invoice
-      =.  payment-hash.invoice
-      %-  to-hexb  data
-      invoice
+        (unknown-tag invoice u.tag data)
+      invoice(payment-hash (to-hexb data))
     ::
     ?:  =(u.tag 's')
       ?.  =(len 52)
-        =.  unknown-tags.invoice
-        %.  [u.tag (to-hexb data)]
-        %~  put  by  unknown-tags.invoice
-        invoice
-      =.  payment-secret.invoice
-      %-  some
-      %-  to-hexb  data
-      invoice
+        (unknown-tag invoice u.tag data)
+      invoice(payment-secret (some (to-hexb data)))
     ::
     ?:  =(u.tag 'd')
       =/  bytes  (to-hexb data)
-      =.  description.invoice
-      %-  some
-      ^-  @t
-      %+  swp  3  dat.bytes
-      invoice
+      =/  desc
+        %-  some
+        ^-  @t
+        %+  swp  3  dat.bytes
+      invoice(description desc)
     ::
     ?:  =(u.tag 'n')
       ?.  =(len 53)
-        =.  unknown-tags.invoice
-        %.  [u.tag (to-hexb data)]
-        %~  put  by  unknown-tags.invoice
-        invoice
-      =.  pubkey.invoice
-      %-  to-hexb  data
-      invoice
+        (unknown-tag invoice u.tag data)
+      invoice(pubkey (to-hexb data))
     ::
     ?:  =(u.tag 'x')
-      =.  expiry.invoice
-      `@dr`dat.data
-      invoice
+      invoice(expiry `@dr`dat.data)
     ::
     ?:  =(u.tag 'c')
-      =.  min-final-cltv-expiry.invoice
-      `@ud`dat.data
-      invoice
+      invoice(min-final-cltv-expiry `@ud`dat.data)
     ::
     ?:  =(u.tag 'f')
-      =.  fallback-address.invoice
-      %-  some
-      %-  to-hexb  data
-      invoice
+      invoice(fallback-address (some (to-hexb data)))
     ::
     ?:  =(u.tag 'r')
       =|  routes=(list route)
       |-
       =|  =route
-      ?~  wid.data
-        %=(invoice route (flop routes))
+      ?:  (lth wid.data route-lent)
+        invoice(route (flop routes))
       =^  pkey  data  (read-bits 264 data)
       =^  chid  data  (read-bits 64 data)
       =^  febs  data  (read-bits 32 data)
@@ -159,18 +145,9 @@
       ==
       $(routes [route routes], data data)
     ::
-    ?:  =(u.tag '9')
-      invoice
+    ?:  =(u.tag '9')  invoice
     ::
-    =.  unknown-tags.invoice
-    %.  [u.tag (to-hexb data)]
-    %~  put  by  unknown-tags.invoice
-    invoice
-  $(bits bits)
-  ::
-  ++  read-bits
-    |=  [n=@ bs=bits]
-    [(take:bit n bs) (drop:bit n bs)]
+    (unknown-tag invoice u.tag data)
   ::
   ++  pull-tagged
     |=  in=bits
@@ -182,6 +159,14 @@
     =^  dta  in  (read-bits (mul len 5) in)
     =/  tag      (value-to-charset:bech32 dat.typ)
     [[tag len dta] in]
+  ::
+  ++  unknown-tag
+    |=  [=invoice tag=@tD =bits]
+    invoice(unknown-tags (~(put by unknown-tags.invoice) tag (to-hexb bits)))
+  ::
+  ++  read-bits
+    |=  [n=@ bs=bits]
+    [(take:bit n bs) (drop:bit n bs)]
   ::
   ++  to-hexb
     |=  =bits
@@ -201,6 +186,8 @@
       %.y
     ==
   ::
+  ::  human-readable part parsers
+  ::
   ++  hum  ;~(pfix pre ;~(plug net ;~(pose ;~((bend) (easy ~) amt) (easy ~))))
   ++  pre  (jest 'ln')
   ++  net
@@ -219,10 +206,12 @@
     ==
   --
 ::
+::  encode lightning payment invoice
+::
 ++  en
   |=  =invoice
-  ^-  (unit cord)
-  ~
+  ^-  cord
+  'nope'
 ::
 ::  need modified bech32 decoder because 90 char length restriction is lifted
 ::
@@ -332,5 +321,5 @@
       ~
     =/  checksum-pos  (sub (lent data-and-checksum) 6)
     `[hrp (scag checksum-pos data-and-checksum) (slag checksum-pos data-and-checksum)]
-    --
+  --
 --
