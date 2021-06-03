@@ -39,6 +39,7 @@
       min-final-cltv-expiry=@ud
       amount=(unit amount)
       description=(unit @t)
+      description-hash=(unit hexb)
       unknown-tags=(map @tD hexb)
       fallback-address=(unit hexb)
       route=(list route)
@@ -83,16 +84,18 @@
   =^  date  bits  (read-bits 35 bits)
   =.  timestamp.invoice  (from-unix:chrono:userlib dat.date)
   ::
+  =/  bs=^bits  bits
   |-
-  ?~  wid.bits  (some invoice)
-  =^  datum  bits  (pull-tagged bits)
+  ?~  wid.bs  (some invoice)
+  =^  datum  bs  (pull-tagged bs)
   %_  $
-    bits     bits
-    invoice  %+(add-tagged invoice datum)
+    bs       bs
+    invoice  (add-tagged invoice datum)
   ==
   ::
   ++  add-tagged
     |=  [=invoice tag=(unit @tD) len=@ud data=bits]
+    ^-  ^invoice
     ?~  tag  invoice
     ?:  =(u.tag 'p')
       ?.  =(len 52)
@@ -111,6 +114,11 @@
         ^-  @t
         %+  swp  3  dat.bytes
       invoice(description desc)
+    ::
+    ?:  =(u.tag 'h')
+      ?.  =(len 52)
+        (unknown-tag invoice u.tag data)
+      invoice(description-hash (some (to-hexb data)))
     ::
     ?:  =(u.tag 'n')
       ?.  =(len 53)
