@@ -43,6 +43,7 @@
       unknown-tags=(map @tD hexb)
       fallback-address=(unit hexb)
       route=(list route)
+      feature-bits=bits
   ==
 ::
 +$  route
@@ -153,7 +154,8 @@
       ==
       $(routes [route routes], data data)
     ::
-    ?:  =(u.tag '9')  invoice
+    ?:  =(u.tag '9')
+      invoice(feature-bits data)
     ::
     (unknown-tag invoice u.tag data)
   ::
