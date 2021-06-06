@@ -33,5 +33,6 @@ Summary:
 Summary: 
 - C broadcasts commitment tx and it confirms
 - C broadcasts preimage settlement to some miners with a low fee. Also includes some "dummy" input in this. Partitions network another tx with that same "dummy" input to relay nodes.
-- A reclaims offered HTLC
-- after A's reclamation confirms in X blocks, C's preimage settlement goes through at some point
+- TODO: how does that dummy input block A from posting HTLC settlement?
+- A reclaims offered HTLC after timelock
+- C's preimage settlement goes through at some point
