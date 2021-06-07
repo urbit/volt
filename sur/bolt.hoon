@@ -8,6 +8,8 @@
 +$  privkey  hexb:bc
 +$  witness  hexb:bc
 +$  signature  hexb:bc
++$  outpoint  [=txid:bc pos=@ud =sats:bc]
++$  commitment-number  @ud
 +$  point  point:secp:crypto
 +$  blocks  @ud                               ::  number of blocks
 +$  msats  @ud                                ::  millisats
@@ -21,6 +23,7 @@
       payment-basepoint=point
       delayed-payment-basepoint=point
       htlc-basepoint=point
+      commitment-number=@ud                   ::  starts at 0
       per-commitment-point=point
       next-per-commitment-point=point
   ==
@@ -35,12 +38,8 @@
   ==
 ::
 +$  commit-tx
-  $:  locktime=hexb:bc
-      sequence=hexb:bc
-      =revocation=pubkey
-      wit=(unit witness)
-      our-anchor=(unit hexb:bc)
-      her-anchor=(unit hexb:bc)
+  $:
+      =commitment-number
       ::  lexicographically ordered
       ::  increasing CLTV order tiebreaker for identical HTLCs
       ::
@@ -66,9 +65,8 @@
   $:  =id
       our=chlen
       her=chlen
-      =funding=txid:bc
-      outpoint=[=txid:bc pos=@ud]
-      funding=sats:bc
+      =funding=outpoint
+      =funding=sats:bc
       dust-limit=sats:bc
       max-htlc-value-in-flight=msats
       channel-reserve=sats:bc
@@ -77,6 +75,7 @@
       to-self-delay=blocks
       cltv-expiry-delta=blocks
       max-accepted-htlcs=@ud
+      anchor-outputs=?
       our-commit=commit-tx
       her-commit=commit-tx
       revocations=(map txid:bc per-commitment-secret=privkey)
@@ -87,6 +86,29 @@
 ::
 ++  msg
   |%
+  ::  channel messages
+  ::
+  +$  open-channel
+    $:  chain-hash=hexb:bc
+        temporary-channel-id=hexb:bc
+        =funding=sats:bc
+        dust-limit=sats:bc
+        max-htlc-value-in-flight=msats
+        channel-reserve=sats:bc
+        htlc-minimum=msats
+        feerate-per-kw=sats:bc
+        to-self-delay=blocks
+        cltv-expiry-delta=blocks
+        max-accepted-htlcs=@ud
+        =first-per-commitment=point
+        anchor-outputs=?
+    ==
+  +$  accept-channel  @ud
+  +$  funding-created  @ud
+  +$  funding-signed  @ud
+  +$  funding-locked  @ud
+  ::  htlc messages
+  ::
   +$  add-signed-htlc
     $:  add=update-add-htlc
         sign=commitment-signed
