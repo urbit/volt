@@ -28,12 +28,18 @@
       ['bcrt' %regtest]
   ==
 ::
++$  signature
+  $:  v=@
+      r=@
+      s=@
+  ==
+::
 +$  invoice
   $:  =network
       timestamp=@da
       payment-hash=hexb
       payment-secret=(unit hexb)
-      signature=hexb
+      =signature
       pubkey=hexb
       expiry=@dr
       min-final-cltv-expiry=@ud
@@ -66,33 +72,77 @@
   ?:  (lth wid.bits signature-lent)
     ~&  >>>  'too short to contain a signature'
     ~
-  ::
   %+  biff  (rust hrp.raw hum)
   |=  [=network amt=(unit amount)]
   ?.  (valid-amount amt)
     ~&  >>>  'invalid amount'
     ~
-  ::
+  =/  sig=@  (cut 3 [0 65] dat.bits)
   =|  =invoice
   =:  network.invoice    network
       amount.invoice     amt
-      signature.invoice  [64 (cut 3 [1 64] dat.bits)]
+      signature.invoice  (decode-signature sig)
       expiry.invoice     ~s3600
       min-final-cltv-expiry.invoice  18
   ==
+  =.  bits
+    :*  wid=(sub wid.bits signature-lent)
+        dat=(rsh [0 signature-lent] dat.bits)
+    ==
   ::
-  =.  bits  (take:bit (sub wid.bits signature-lent) bits)
+  =/  sig-data=^bits  bits
   =^  date  bits  (read-bits 35 bits)
   =.  timestamp.invoice  (from-unix:chrono:userlib dat.date)
-  ::
-  =/  bs=^bits  bits
   |-
-  ?~  wid.bs  (some invoice)
-  =^  datum  bs  (pull-tagged bs)
+  ?.  =(0 wid.bits)
+  =^  datum  bits  (pull-tagged bits)
   %_  $
-    bs       bs
+    bits       bits
     invoice  (add-tagged invoice datum)
   ==
+  ::
+  %-  some
+  ?.  =(0 wid.pubkey.invoice)  invoice
+  invoice(pubkey (recover-pubkey signature.invoice hrp.raw sig-data))
+  ::
+  ++  decode-signature
+    |=  sig=@
+    =/  v=@  (dis sig 0xff)
+    =.  sig  (rsh [3 1] sig)
+    =/  s=@
+      %+  dis  sig
+        0xffff.ffff.ffff.ffff.
+          ffff.ffff.ffff.ffff.
+          ffff.ffff.ffff.ffff.
+          ffff.ffff.ffff.ffff
+    =.  sig  (rsh [3 32] sig)
+    =/  r=@  sig
+    [v=v r=r s=s]
+  ::
+  ++  recover-pubkey
+    =,  secp:crypto
+    |=  [sig=signature hrp=tape raw=bits]
+    ^-  hexb
+    =/  n=@
+      %+  sub  8
+      %+  mod  wid.raw  8
+    =/  msg=bits
+      %-  cat:bit
+      :~  :*  wid=(mul (lent hrp) 8)
+              dat=`@ub`(swp 3 (crip hrp))
+          ==
+          :*  wid=(add wid.raw n)
+              dat=(lsh [0 n] dat.raw)
+          ==
+      ==
+    =/  hash=@
+      %+  swp  3
+      %-  shay
+      :-  (div wid.msg 8)
+          (swp 3 dat.msg)
+    :-  33
+    %-  compress-point:secp256k1
+    %+  ecdsa-raw-recover:secp256k1  hash  sig
   ::
   ++  add-tagged
     |=  [=invoice tag=(unit @tD) len=@ud data=bits]
@@ -180,7 +230,9 @@
   ::
   ++  to-hexb
     |=  =bits
-    [wid=(div wid.bits 8) dat=`@ux`(rsh [0 (mod wid.bits 8)] dat.bits)]
+    :*  wid=(div wid.bits 8)
+        dat=`@ux`(rsh [0 (mod wid.bits 8)] dat.bits)
+    ==
   ::
   ++  route-lent  ^~
     %+  add  264
