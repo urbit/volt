@@ -87,6 +87,14 @@
 ::
 ++  msg
   |%
+  +$  add-signed-htlc
+    $:  add=update-add-htlc
+        sign=commitment-signed
+    ==
+  +$  update-add-htlc
+    $:  =channel=id
+        =htlc=id
+    ==
   +$  commitment-signed
     $:  =channel=id
         sig=signature
@@ -98,10 +106,6 @@
         =id
         per-commitment-secret=hexb:bc
         next-per-commitment-point=point
-    ==
-  +$  update-add-htlc
-    $:  =channel=id
-        =htlc=id
     ==
   --
 --
