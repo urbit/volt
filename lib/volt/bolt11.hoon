@@ -186,7 +186,7 @@
       invoice(pubkey (to-hexb data))
     ::
     ?:  =(u.tag 'x')
-      invoice(expiry `@dr`dat.data)
+      invoice(expiry `@dr`(mul ~s1 dat.data))
     ::
     ?:  =(u.tag 'c')
       invoice(min-final-cltv-expiry `@ud`dat.data)
@@ -353,8 +353,10 @@
     =?  data  !=(~h1 expiry.in)
     %-  cat:bit
     :~  data
-      %+  tagged-bytes  'x'
-      %-  encode-bytes  expiry.in
+      %+  tagged  'x'
+      :*  wid=(met 0 expiry.in)
+          dat=`@ub`expiry.in
+      ==
     ==
     ::
     =?  data  !=(18 min-final-cltv-expiry.in)
@@ -378,17 +380,24 @@
       ^-  hexb
       [wid=(met 3 a) dat=`@ux`a]
     ::
+    ++  tagged
+      |=  [t=@tD b=bits]
+      ^-  bits
+      =/  c=@  (need (charset-to-value:bech32 t))
+      =.  b    (pad-bits 5 b)
+      %-  cat:bit
+      :~  [wid=5 dat=c]
+          [wid=5 dat=(div (div wid.b 5) 32)]
+          [wid=5 dat=(mod (div wid.b 5) 32)]
+          b
+      ==
+    ::
     ++  tagged-bytes
       |=  [tag=@tD bytes=hexb]
       ^-  bits
-      =/  =bits  [(mul wid.bytes 8) `@ub`dat.bytes]
-      =.  bits   (pad-bits 5 bits)
-      =/  chr=@  (need (charset-to-value:bech32 tag))
-      %-  cat:bit
-      :~  [wid=5 dat=chr]
-          [wid=5 dat=(div (div wid.bits 5) 32)]
-          [wid=5 dat=(mod (div wid.bits 5) 32)]
-          bits
+      %+  tagged  tag
+      :*  wid=(mul wid.bytes 8)
+          dat=`@ub`dat.bytes
       ==
     --
   ::
