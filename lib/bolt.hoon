@@ -43,4 +43,13 @@
     ::  nVersion: 02000000
     ::  nLocktime: upper 8 bits are 0x20, lower 24 bits are the lower 24 bits of the obscured commitment number
   --
+::  bitcoin-txu
+::   wrappers to add functionality to lib/bitcoin.hoon
+::   should be ported back and PR'd there when done
+::
+++  bitcoin-txu
+  |%
+  ::  TODO: need a sighash function here
+  ++  blank  @ud
+  --
 --

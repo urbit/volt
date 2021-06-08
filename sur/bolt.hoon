@@ -13,19 +13,13 @@
 +$  point  point:secp:crypto
 +$  blocks  @ud                               ::  number of blocks
 +$  msats  @ud                                ::  millisats
-::  chlen: 1 of the 2 members of a channel
 ::
-+$  chlen
-  $:  =ship
-      funding-pubkey=pubkey
-      shutdown-script-pubkey=pubkey
-      revocation-basepoint=point
-      payment-basepoint=point
-      delayed-payment-basepoint=point
-      htlc-basepoint=point
-      commitment-number=@ud                   ::  starts at 0
-      per-commitment-point=point
-      next-per-commitment-point=point
++$  basepoints
+  $:  revocation=point
+      payment=point
+      delayed-payment=point
+      htlc=point
+
   ==
 ::
 +$  htlc
@@ -37,13 +31,14 @@
       cltv-expiry=blocks
   ==
 ::
-+$  commit-tx
++$  commit-state
   $:
       =commitment-number
       ::  lexicographically ordered
       ::  increasing CLTV order tiebreaker for identical HTLCs
       ::
-      htlcs=(list htlc)
+      offered=(list htlc)
+      received=(list htlc)
   ==
 ::  pending offered HTLC that we're waiting for revoke_and_ack on
 ::
@@ -58,6 +53,30 @@
       next-receive=id
       offer=(unit htlc-pend)
       receive=(unit htlc-pend)
+  ==
+::  chlen: 1 of the 2 members of a channel
+::
++$  chlen
+  $:  =ship
+      =funding=pubkey
+      =shutdown-script=pubkey
+      =basepoints
+      per-commitment-point=point
+      next-per-commitment-point=point
+      =commit-state
+  ==
+::
+::  larva-chan: a channel in the larval state
+::   - holds all the messages back and forth until finalized
+::   - used to build chan
++$  larva-chan
+  $:  oc=(unit open-channel:msg)
+      ac=(unit accept-channel:msg)
+      fc=(unit funding-created:msg)
+      fs=(unit funding-signed:msg)
+      fl-funder=(unit funding-locked:msg)
+      fl-funder=(unit funding-locked:msg)
+      fl-fundee=(unit funding-locked:msg)
   ==
 ::  chan: channel state
 ::
@@ -76,8 +95,6 @@
       cltv-expiry-delta=blocks
       max-accepted-htlcs=@ud
       anchor-outputs=?
-      our-commit=commit-tx
-      her-commit=commit-tx
       revocations=(map txid:bc per-commitment-secret=privkey)
       =htlc-state
   ==
@@ -92,6 +109,7 @@
     $:  chain-hash=hexb:bc
         temporary-channel-id=hexb:bc
         =funding=sats:bc
+        =funding=pubkey
         dust-limit=sats:bc
         max-htlc-value-in-flight=msats
         channel-reserve=sats:bc
@@ -100,14 +118,39 @@
         to-self-delay=blocks
         cltv-expiry-delta=blocks
         max-accepted-htlcs=@ud
+        =basepoints
         =first-per-commitment=point
+        =shutdown-script=pubkey
         anchor-outputs=?
     ==
-  +$  accept-channel  @ud
-  +$  funding-created  @ud
-  +$  funding-signed  @ud
-  +$  funding-locked  @ud
-  ::  htlc messages
+  +$  accept-channel
+    $:  =funding=pubkey
+        dust-limit=sats:bc
+        max-htlc-value-in-flight=msats
+        channel-reserve=sats:bc
+        htlc-minimum=msats
+        minimum-depth=blocks
+        to-self-delay=blocks
+        max-accepted-htlcs=@ud
+        =basepoints
+        =first-per-commitment=point
+        =shutdown-script=pubkey
+    ==
+  +$  funding-created
+    $:  temporary-channel-id=hexb:bc
+        =funding=outpoint
+        =signature
+    ==
+  +$  funding-signed
+    $:  =channel=id
+        =signature
+    ==
+  +$  funding-locked
+    $:  =channel=id
+        =next-per-commitment=point
+    ==
+  ::
+  ::  HTLC Messages
   ::
   +$  add-signed-htlc
     $:  add=update-add-htlc
