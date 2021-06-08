@@ -60,6 +60,17 @@
       cltv-expiry-delta=@ud
   ==
 ::
+++  pad-bits
+  |=  [m=@ data=bits]
+  ^-  bits
+  |-
+  ?:  =(0 (mod wid.data m))  data
+  %=  $  data
+    :*  wid=(add wid.data 1)
+        dat=(lsh [0 1] dat.data)
+     ==
+  ==
+::
 ::  decode lightning payment request
 ::
 ++  de
@@ -102,8 +113,7 @@
   ==
   ?.  =(0 wid.pubkey.invoice)  (some invoice)
   %+  bind  (recover-pubkey signature.invoice hrp.raw sig-data)
-  |=  k=hexb
-  invoice(pubkey k)
+  |=  k=hexb  invoice(pubkey k)
   ::
   ++  decode-signature
     |=  sig=@
@@ -126,17 +136,12 @@
     ?.  (lte v.sig 3)
       ~&  >>>  "%recover-pubkey: invalid recid {<v.sig>}"
       ~
-    =/  n=@
-      %+  sub  8
-      %+  mod  wid.raw  8
     =/  msg=bits
       %-  cat:bit
       :~  :*  wid=(mul (lent hrp) 8)
               dat=`@ub`(swp 3 (crip hrp))
           ==
-          :*  wid=(add wid.raw n)
-              dat=(lsh [0 n] dat.raw)
-          ==
+          (pad-bits 8 raw)
       ==
     =/  hash=@
       %+  swp  3
@@ -295,17 +300,6 @@
         [wid=(mul 32 8) dat=r]
         [wid=(mul 32 8) dat=s]
         [wid=8 dat=v]
-    ==
-  ::
-  ++  pad-bits
-    |=  [m=@ data=bits]
-    ^-  bits
-    |-
-    ?:  =(0 (mod wid.data m))  data
-    %=  $  data
-      :*  wid=(add wid.data 1)
-          dat=(lsh [0 1] dat.data)
-       ==
     ==
   ::
   ++  encode-invoice
