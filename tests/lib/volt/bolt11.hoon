@@ -61,6 +61,26 @@
         route=~
         feature-bits=0^0b0
     ==
+    ::  the same, on testnet, with fallback address mk2QpYatsKicvFVuTAQLBryyccRXMUaGHP
+    :-  'lntb20m1pvjluezhp58yjmdan79s6qqdhdzgynm4zwqd5d7xmw5fk98klysy043l2ahrqspp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqfpp3x9et2e20v6pu37c5d9vax37wxq72un98kmzzhznpurw9sgl2v0nklu2g4d0keph5t7tj9tcqd8rexnd07ux4uv2cjvcqwaxgj7v4uwn5wmypjd5n69z2xm3xgksg28nwht7f6zspwp3f9t'
+    %-  some
+    %-  invoice:bolt11
+    :*  network=%testnet
+        timestamp=time
+        payment-hash=rhash
+        payment-secret=~
+        signature=[v=1 r=0xb6c4.2b8a.61e0.dc58.23ea.63e7.6ff1.48ab.5f6c.86f4.5f97.22af.0069.c793.4daf.f70d s=0x5e31.5893.3007.74c8.9799.5e3a.7476.c819.3693.d144.a36e.2645.a085.1e6e.bafc.9d0a]
+        pubkey=pubkey
+        expiry=~m60
+        min-final-cltv-expiry=18
+        amount=(some [20 (some %m)])
+        description=~
+        description-hash=(some [wid=32 dat=0x3925.b6f6.7e2c.3400.36ed.1209.3dd4.4e03.68df.1b6e.a26c.53db.e481.1f58.fd5d.b8c1])
+        unknown-tags=*(map @tD hexb)
+        fallback-address=(some [%base58 0cmk2QpYatsKicvFVuTAQLBryyccRXMUaGHP])
+        route=~
+        feature-bits=0^0b0
+    ==
   ==
 ::
 ++  encode-test-vectors  ~

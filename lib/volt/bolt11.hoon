@@ -47,7 +47,7 @@
       description=(unit @t)
       description-hash=(unit hexb)
       unknown-tags=(map @tD hexb)
-      fallback-address=(unit hexb)
+      fallback-address=(unit address)
       route=(list route)
       feature-bits=bits
   ==
@@ -71,6 +71,15 @@
      ==
   ==
 ::
+++  base58-prefixes
+  ^-  (map network [@ @])
+  %-  my
+  :~  [%main [0 1]]
+      [%testnet [111 196]]
+  ==
+::
+++  signature-lent  (mul 8 65)
+::
 ::  decode lightning payment request
 ::
 ++  de
@@ -79,7 +88,6 @@
   %+  biff  (decode-raw:bech32 body)
   |=  raw=raw-decoded:bech32
   =/  =bits  (from-atoms:bit 5 data.raw)
-  =*  signature-lent  (mul 65 8)
   ?:  (lth wid.bits signature-lent)
     ~&  >>>  '&de: too short to contain a signature'
     ~
@@ -88,7 +96,8 @@
   ?.  (valid-amount amt)
     ~&  >>>  '&de: invalid amount'
     ~
-  =/  sig=@  (cut 3 [0 65] dat.bits)
+  =^  sig=@  bits  (extract-signature bits)
+  =/  sig-data=^bits  bits
   =|  =invoice
   =:  network.invoice    network
       amount.invoice     amt
@@ -96,11 +105,6 @@
       expiry.invoice     ~s3600
       min-final-cltv-expiry.invoice  18
   ==
-  =.  bits
-    :*  wid=(sub wid.bits signature-lent)
-        dat=(rsh [0 signature-lent] dat.bits)
-    ==
-  =/  sig-data=^bits  bits
   =^  date  bits  (read-bits 35 bits)
   =.  timestamp.invoice
     %-  from-unix:chrono:userlib  dat.date
@@ -108,12 +112,19 @@
   ?.  =(0 wid.bits)
   =^  datum  bits  (pull-tagged bits)
   %_  $
-    bits       bits
+    bits     bits
     invoice  (add-tagged invoice datum)
   ==
   ?.  =(0 wid.pubkey.invoice)  (some invoice)
   %+  bind  (recover-pubkey signature.invoice hrp.raw sig-data)
-  |=  k=hexb  invoice(pubkey k)
+  |=  key=hexb  invoice(pubkey key)
+  ::
+  ++  extract-signature
+    |=  =bits
+    :-  (cut 3 [0 65] dat.bits)
+    :*  wid=(sub wid.bits signature-lent)
+        dat=(rsh [0 signature-lent] dat.bits)
+    ==
   ::
   ++  decode-signature
     |=  sig=@
@@ -132,26 +143,41 @@
   ++  recover-pubkey
     =,  secp:crypto
     |=  [sig=signature hrp=tape raw=bits]
-    ^-  (unit hexb)
+    |^  ^-  (unit hexb)
     ?.  (lte v.sig 3)
       ~&  >>>  "%recover-pubkey: invalid recid {<v.sig>}"
       ~
-    =/  msg=bits
-      %-  cat:bit
-      :~  :*  wid=(mul (lent hrp) 8)
-              dat=`@ub`(swp 3 (crip hrp))
-          ==
-          (pad-bits 8 raw)
-      ==
-    =/  hash=@
-      %+  swp  3
-      %-  shay
-      :-  (div wid.msg 8)
-          (swp 3 dat.msg)
     %-  some
-    :-  33
+    :-  sig-len
     %-  compress-point:secp256k1
-    %+  ecdsa-raw-recover:secp256k1  hash  sig
+    %+  ecdsa-raw-recover:secp256k1
+      %-  hash-data
+      %+  signed-data  hrp  raw
+      sig
+    ::
+    ++  sig-len  33
+    ::
+    ++  signed-data
+      |=  [hrp=tape raw=bits]
+      ^-  bits
+      %-  cat:bit
+      :~  %-  tape-to-bits  hrp
+          %+  pad-bits  8  raw
+      ==
+    ::
+    ++  hash-data
+      |=  =bits
+      ^-  @
+      %+  swp  3
+      (shay (div wid.bits 8) (swp 3 dat.bits))
+    ::
+    ++  tape-to-bits
+      |=  =tape
+      ^-  bits
+      :*  wid=(mul (lent tape) 8)
+          dat=`@ub`(swp 3 (crip hrp))
+      ==
+    --
   ::
   ++  add-tagged
     |=  [=invoice tag=(unit @tD) len=@ud data=bits]
@@ -192,7 +218,7 @@
       invoice(min-final-cltv-expiry `@ud`dat.data)
     ::
     ?:  =(u.tag 'f')
-      invoice(fallback-address (some (to-hexb data)))
+      invoice(fallback-address (parse-fallback network.invoice data))
     ::
     ?:  =(u.tag 'r')
       =|  routes=(list route)
@@ -228,6 +254,37 @@
     =^  dta  in  (read-bits (mul len 5) in)
     =/  tag      (value-to-charset:bech32 dat.typ)
     [[tag len dta] in]
+  ::
+  ++  parse-fallback
+    |=  [=network f=bits]
+    ^-  (unit address)
+    ?:  ?|(=(network %main) =(network %testnet))
+      =/  wver=bits  (take:bit 5 f)
+      ?:  =(dat.wver 17)
+        =/  n=[@ @]  (need (~(get by base58-prefixes) network))
+        =/  b=bits
+          %-  cat:bit
+          :~  [wid=8 dat=`@ub`-.n]
+              (drop:bit 5 f)
+          ==
+        (some [%base58 `@uc`dat.b])
+      ::
+      ?:  =(dat.wver 18)
+        =/  n=[@ @]  (need (~(get by base58-prefixes) network))
+        =/  b=bits
+          %-  cat:bit
+          :~  [wid=8 dat=`@ub`+.n]
+              (drop:bit 5 f)
+          ==
+        (some [%base58 `@uc`dat.b])
+      ::
+      ?:  (lte dat.wver 16)
+        %+  bind
+          %+  encode-pubkey:bech32  network
+          %-  to-hexb  f
+        |=  =cord  [%bech32 cord]
+      ~
+    ~
   ::
   ++  unknown-tag
     |=  [=invoice tag=@tD =bits]
@@ -340,14 +397,18 @@
     ::
     =?  data  !=(~ fallback-address.in)
     %-  cat:bit
-    ~[data (tagged-bytes 'f' (need fallback-address.in))]
+    :~  data
+      %+  tagged  'f'
+      %+  encode-fallback  network.in
+      %-  need  fallback-address.in
+    ==
     ::
     =?  data  !=(~ description.in)
     =/  desc  (need description.in)
     %-  cat:bit
     :~  data
       %+  tagged-bytes  'd'
-      %-  encode-bytes  (swp 3 desc)
+      %-  bits-to-bytes  (swp 3 desc)
     ==
     ::
     =?  data  !=(~h1 expiry.in)
@@ -363,7 +424,7 @@
     %-  cat:bit
     :~  data
       %+  tagged-bytes  'c'
-      %-  encode-bytes  min-final-cltv-expiry.in
+      %-  bits-to-bytes  min-final-cltv-expiry.in
     ==
     ::
     =?  data  !=(~ description-hash.in)
@@ -375,10 +436,38 @@
     ::
     data
     ::
-    ++  encode-bytes
-      |=  a=@
-      ^-  hexb
-      [wid=(met 3 a) dat=`@ux`a]
+    ++  encode-fallback
+      |=  [=network =address]
+      ^-  bits
+      ?-    -.address
+          %bech32
+        %-  bytes-to-bits
+        (from-address:bech32 +.address)
+      ::
+          %base58
+        =/  addr=@uc  +.address
+        =/  byte=@    (dis addr 0xff)
+        =/  wver=@
+          ?:  (is-p2pkh network byte)  17
+          ?:  (is-p2sh network byte)   18
+          ~|("Unknown address for type {<network>}" !!)
+        %-  cat:bit
+        :~  [wid=5 dat=wver]
+            [wid=200 dat=addr]
+        ==
+      ==
+    ::
+    ++  is-p2pkh
+      |=  [n=network c=@]
+      ^-  ?
+      =/  p=[@ @]  (need (~(get by base58-prefixes) n))
+      =(c -.p)
+    ::
+    ++  is-p2sh
+      |=  [n=network c=@]
+      ^-  ?
+      =/  p=[@ @]  (need (~(get by base58-prefixes) n))
+      =(c +.p)
     ::
     ++  tagged
       |=  [t=@tD b=bits]
@@ -396,23 +485,29 @@
       |=  [tag=@tD bytes=hexb]
       ^-  bits
       %+  tagged  tag
-      :*  wid=(mul wid.bytes 8)
-          dat=`@ub`dat.bytes
-      ==
+      %-  bytes-to-bits  bytes
+    ::
+    ++  bytes-to-bits
+      |=  =hexb
+      [wid=(mul wid.hexb 8) dat=`@ub`dat.hexb]
+    ::
+    ++  bits-to-bytes
+      |=  a=@
+      ^-  hexb
+      [wid=(met 3 a) dat=`@ux`a]
     --
   ::
   ++  encode-hrp
     |=  =invoice
     |^  ^-  tape
-    =|  hrp=tape
-    =.  hrp  (weld hrp "ln")
-    =.  hrp
-      %+  weld  hrp
+    ;:  weld  "ln"
       %-  network-to-tape  network.invoice
-    =.  hrp
-      %+  weld  hrp
       %-  amount-to-tape  amount.invoice
-    hrp
+    ==
+    ::
+    ++  network-to-tape
+      |=  =network
+      (need (~(get by prefixes) network))
     ::
     ++  amount-to-tape
       |=  amt=(unit amount)
@@ -426,10 +521,6 @@
         (scow %tas multiplier)
         ""
       ""
-    ::
-    ++  network-to-tape
-      |=  =network
-      (need (~(get by prefixes) network))
     --
   --
 ::
@@ -541,5 +632,34 @@
       ~
     =/  checksum-pos  (sub (lent data-and-checksum) 6)
     `[hrp (scag checksum-pos data-and-checksum) (slag checksum-pos data-and-checksum)]
+  ::  +from-address: BIP173 bech32 address encoding to hex
+  ::  https://github.com/bitcoin/bips/blob/master/bip-0173.mediawiki
+  ::  expects to drop a leading 5-bit 0 (the witness version)
+  ::
+  ++  from-address
+    |=  body=cord
+    ^-  hexb
+    ~|  "Invalid bech32 address"
+    =/  d=(unit raw-decoded)  (decode-raw body)
+    ?>  ?=(^ d)
+    =/  bs=bits  (from-atoms:bit 5 data.u.d)
+    =/  byt-len=@  (div (sub wid.bs 5) 8)
+    ?>  =(5^0b0 (take:bit 5 bs))
+    ?>  ?|  =(20 byt-len)
+            =(32 byt-len)
+        ==
+    [byt-len `@ux`dat:(take:bit (mul 8 byt-len) (drop:bit 5 bs))]
+  ::  pubkey is the 33 byte ECC compressed public key
+  ::
+  ++  encode-pubkey
+    |=  [=network pubkey=byts]
+    ^-  (unit cord)
+    ?.  =(33 wid.pubkey)
+      ~|('pubkey must be a 33 byte ECC compressed public key' !!)
+    =/  prefix  (~(get by prefixes) network)
+    ?~  prefix  ~
+    :-  ~
+    %+  encode-raw  u.prefix
+    [0v0 (to-atoms:bit 5 [160 `@ub`dat:(hash-160 pubkey)])]
   --
 --
