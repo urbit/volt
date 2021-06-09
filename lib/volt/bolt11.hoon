@@ -74,7 +74,7 @@
 ++  base58-prefixes
   ^-  (map network [@ @])
   %-  my
-  :~  [%main [0 1]]
+  :~  [%main [0 5]]
       [%testnet [111 196]]
   ==
 ::
