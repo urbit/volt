@@ -279,10 +279,12 @@
         (some [%base58 `@uc`dat.b])
       ::
       ?:  (lte dat.wver 16)
-        %+  bind
-          %+  encode-pubkey:bech32  network
-          %-  to-hexb  f
-        |=  =cord  [%bech32 cord]
+        %+  bind  (~(get by prefixes) network)
+        |=  prefix=tape
+        =/  enc=cord
+          %+  encode-raw:bech32  prefix
+          [0v0 (to-atoms:bit 5 [160 `@ub`dat.f])]
+        [%bech32 enc]
       ~
     ~
   ::
@@ -655,6 +657,7 @@
     |=  [=network pubkey=byts]
     ^-  (unit cord)
     ?.  =(33 wid.pubkey)
+      ~&  >>>  pubkey
       ~|('pubkey must be a 33 byte ECC compressed public key' !!)
     =/  prefix  (~(get by prefixes) network)
     ?~  prefix  ~

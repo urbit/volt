@@ -155,7 +155,7 @@
         route=r
         feature-bits=0^0b0
     ==
-    ::
+    ::  on mainnet, with fallback (P2SH) address 3EktnHQD7RiAE6uzMj2ZifT9YgRrkSgzQX
     :-  'lnbc20m1pvjluezhp58yjmdan79s6qqdhdzgynm4zwqd5d7xmw5fk98klysy043l2ahrqspp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqfppj3a24vwu6r8ejrss3axul8rxldph2q7z9kmrgvr7xlaqm47apw3d48zm203kzcq357a4ls9al2ea73r8jcceyjtya6fu5wzzpe50zrge6ulk4nvjcpxlekvmxl6qcs9j3tz0469gq5g658y'
     %-  some
     %-  invoice:bolt11
@@ -172,6 +172,26 @@
         description-hash=(some [wid=32 dat=0x3925.b6f6.7e2c.3400.36ed.1209.3dd4.4e03.68df.1b6e.a26c.53db.e481.1f58.fd5d.b8c1])
         unknown-tags=*(map @tD hexb)
         fallback-address=(some [%base58 0c3EktnHQD7RiAE6uzMj2ZifT9YgRrkSgzQX])
+        route=~
+        feature-bits=0^0b0
+    ==
+    ::  on mainnet, with fallback (P2WPKH) address bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4
+    :-  'lnbc20m1pvjluezhp58yjmdan79s6qqdhdzgynm4zwqd5d7xmw5fk98klysy043l2ahrqspp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqfppqw508d6qejxtdg4y5r3zarvary0c5xw7kepvrhrm9s57hejg0p662ur5j5cr03890fa7k2pypgttmh4897d3raaq85a293e9jpuqwl0rnfuwzam7yr8e690nd2ypcq9hlkdwdvycqa0qza8'
+    %-  some
+    %-  invoice:bolt11
+    :*  network=%main
+        timestamp=time
+        payment-hash=rhash
+        payment-secret=~
+        signature=[v=0 r=0xc858.3b8f.6585.3d7c.c90f.0eb4.ae0e.92a6.06f8.9caf.4f7d.6504.8142.d7bb.d4e5.f362 s=0x3ef4.07a7.5458.e4b2.0f00.efbc.734f.1c2e.efc4.19f3.a2be.6d51.0380.16ff.b35c.d613]
+        pubkey=pubkey
+        expiry=~m60
+        min-final-cltv-expiry=18
+        amount=(some [20 (some %m)])
+        description=~
+        description-hash=(some [wid=32 dat=0x3925.b6f6.7e2c.3400.36ed.1209.3dd4.4e03.68df.1b6e.a26c.53db.e481.1f58.fd5d.b8c1])
+        unknown-tags=*(map @tD hexb)
+        fallback-address=(some [%bech32 'bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4'])
         route=~
         feature-bits=0^0b0
     ==
