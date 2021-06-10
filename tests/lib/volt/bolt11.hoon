@@ -358,15 +358,18 @@
     |=  v=@t
     %+  expect-eq  !>(~)  !>((de:bolt11 v))
   ::
+  ::  test that we can round-trip, with pubkey recovery.
+  ::  it should be the identity, but we have to ignore ecdsa randomness
+  ::
   ++  check-encode
     |=  v=bolt11-test-vector
     =/  in=invoice:bolt11  +.v
     =/  chk=invoice:bolt11  +.v
-    =.  pubkey.in  0^0x0
-    =.  unknown-tags.chk  *(map @tD hexb)
+    =.  pubkey.in  0^0x0                   ::  force pubkey to be recovered
+    =.  unknown-tags.chk  *(map @tD hexb)  ::  unknown tags not serialized
     =/  en=cord  (en:bolt11 in privkey)
     =/  de=invoice:bolt11  (need (de:bolt11 en))
-    =.  signature.chk  signature.de
+    =.  signature.chk  signature.de        ::  ignore ECDSA k
     %+  expect-eq  !>(chk)  !>(de)
   --
 ::
