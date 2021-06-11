@@ -77,7 +77,8 @@
     ?:  ?&  ?=(%set-provider -.wire)
             =(host.u.prov src.bowl)
         ==
-      `this(prov ~)
+      :_  this
+      ~[(sub-provider prov)]
     `this
   ::
       %fact
@@ -90,6 +91,15 @@
         `state
       ==
     [cards this]
+  ::
+      %watch-ack
+    ?:  ?=(%set-provider -.wire)
+      ?~  p.sign
+        `this
+      =/  =tank  leaf+"subscribe to provider {dap.bowl} failed"
+      %-  (slog tank u.p.sign)
+      `this(prov ~)
+    `this
   ==
 ::
 ++  on-peek   on-peek:def
@@ -129,10 +139,7 @@
   ^-  (quip card _state)
   ?-    -.command
       %set-provider
-    =*  sub-card
-    :*  %pass  /set-provider/[(scot %p provider.command)]
-        %agent  [provider.command %volt-provider]  %watch  /clients
-    ==
+    =/  sub-card=card  (sub-provider provider.command)
     :_  state(prov [~ provider.command])
     ?~  prov  ~[sub-card]
     :~  :*  %pass  /set-provider/[(scot %p host.u.prov)]
@@ -141,6 +148,13 @@
         sub-card
     ==
   ::
+  ==
+::
+++  sub-provider
+  |=  provider=ship
+  ^-  card
+  :*  %pass  /set-provider/[(scot %p provider)]
+      %agent  [provider %volt-provider]  %watch  /clients
   ==
 ::
 ++  poke-provider
