@@ -1,25 +1,34 @@
 ::  bolt.hoon
 ::  Datatypes to implement Lightning BOLT RFCs.
 ::
-/-  bc=bitcoin
+/-  bc=bitcoin, bp=btc-provider
 |%
 +$  id  @ud
 +$  pubkey  hexb:bc
 +$  privkey  hexb:bc
-+$  witness  hexb:bc
++$  witness  (list hexb:bc)
 +$  signature  hexb:bc
 +$  outpoint  [=txid:bc pos=@ud =sats:bc]
 +$  commitment-number  @ud
 +$  point  point:secp:crypto
 +$  blocks  @ud                               ::  number of blocks
 +$  msats  @ud                                ::  millisats
+::  +tx
+::   modifications to bitcoin tx types, to be merged back later
+::
+++  tx
+  |%
+  +$  data
+    $:  data:tx:bc
+        ws=(list witness)
+    ==
+  --
 ::
 +$  basepoints
   $:  revocation=point
       payment=point
       delayed-payment=point
       htlc=point
-
   ==
 ::
 +$  htlc
@@ -74,7 +83,6 @@
       ac=(unit accept-channel:msg)
       fc=(unit funding-created:msg)
       fs=(unit funding-signed:msg)
-      fl-funder=(unit funding-locked:msg)
       fl-funder=(unit funding-locked:msg)
       fl-fundee=(unit funding-locked:msg)
   ==
@@ -173,4 +181,22 @@
         next-per-commitment-point=point
     ==
   --
+  ::
+  +$  message
+    $%  [%open-channel open-channel:msg]
+        [%accept-channel accept-channel:msg]
+        [%funding-created funding-created:msg]
+        [%funding-signed funding-signed:msg]
+        [%funding-locked funding-locked:msg]
+::        [%shutdown shutdown:msg]
+::        [%closing-signed closing-signed:msg]
+        [%update-add-htlc update-add-htlc:msg]
+        [%commitment-signed commitment-signed:msg]
+        [%revoke-and-ack revoke-and-ack:msg]
+    ==
+  ::
+  +$  state
+    $:  chans=(map id chan)
+        pending=(map id larva-chan)
+    ==
 --
