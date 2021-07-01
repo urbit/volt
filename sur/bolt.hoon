@@ -40,6 +40,14 @@
       cltv-expiry=blocks
   ==
 ::
+++  commitment-keyring
+  $:  local-htlc-key=pubkey
+      remote-htlc-key=pubkey
+      to-local-key=pubkey
+      to-remote-key=pubkey
+      revocation-key=pubkey
+  ==
+::
 +$  commit-state
   $:
       =commitment-number
@@ -68,6 +76,7 @@
 +$  chlen
   $:  =ship
       =funding=pubkey
+      =funding=signature
       =shutdown-script=pubkey
       =basepoints
       per-commitment-point=point
@@ -90,6 +99,7 @@
 ::
 +$  chan
   $:  =id
+      initiator=?
       our=chlen
       her=chlen
       =funding=outpoint
@@ -117,6 +127,7 @@
     $:  chain-hash=hexb:bc
         temporary-channel-id=hexb:bc
         =funding=sats:bc
+        =push=msats
         =funding=pubkey
         dust-limit=sats:bc
         max-htlc-value-in-flight=msats

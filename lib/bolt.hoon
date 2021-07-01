@@ -4,20 +4,36 @@
 /-  *bolt
 /+  bc=bitcoin, script=bolt-script
 |%
-++  make-channel-id
-  |=  [funding-txid=id funding-output-index=@ud]
-  ^-  id
-  (mix funding-txid funding-output-index)
-::
-++  msats-to-sats
-  |=  a=msats
-  ^-  sats:bc
-  (div a 1.000)
 ::  +bolt-tx
 ::    helpers for building & signing commitment/HTLC txs
 ::
 ++  bolt-tx
   |%
+  ++  make-channel-id
+    |=  [funding-txid=id funding-output-index=@ud]
+    ^-  id
+    (mix funding-txid funding-output-index)
+  ::
+  ++  msats-to-sats
+    |=  a=msats
+    ^-  sats:bc
+    (div a 1.000)
+  ::
+  ++  outpoint-to-input
+    |=  $:  o=outpoint
+            seq=hexb:bc
+            script-sig=(unit hexb:bc)
+            pubkey=(unit hexb:bc)
+        ==
+    ^-  input:tx:bc
+    :*  txid=txid.o
+        pos=pos.o
+        sequence=seq
+        script-sig=script-sig
+        pubkey=pubkey
+        value=sats.o
+    ==
+  ::
   ++  p2wsh
     |=  s=script:script
     ^-  hexb:bc
@@ -26,29 +42,66 @@
         :-  %op-pushdata
         %-  sha256:bc  (en:script s)
     ==
-  ::  +obscured-commitment-number
-  ::    generate obscured commitment number.
   ::
-  ++  obscured-commitment-number
-    =,  secp256k1:secp:crypto
-    |=  [lar=larva-chan cn=commitment-number]
-    ~|  "invalid channel state"
-    ?<  ?|(?=(~ oc.lar) ?=(~ ac.lar))
-    |^  ^-  @ud
-    (mix dat:(mask) cn)
+  ++  p2wpkh
+    |=  p=pubkey
+    ^-  hexb:bc
+    %-  en:script
+    :~  %op-0
+        [%op-pushdata (hash-160:bc p)]
+    ==
+  ::  +sort-signatures:bolt-tx: order a pair of signature, pubkey pairs
+  ::
+  ::    The funding transaction witness script orders pubkeys
+  ::    lexicographically, so a spend from a funding output needs to
+  ::    arrange the signatures in the same order.
+  ::
+  ++  sort-signatures
+    |=  sigs=(list (pair signature pubkey))
+    |^  ^-  (list signature)
+    (turn (sort sigs pk-lte) head)
     ::
-    ++  mask  |.
+    ++  pk-lte
+      |=  [a=[s=signature p=pubkey] b=[s=signature p=pubkey]]
+      (lte dat.p.a dat.p.b)
+    --
+  ::
+  ++  obscure-commitment-number
+    =,  secp256k1:secp:crypto
+    |=  [cn=commitment-number oc=point ac=point]
+    |^  ^-  @ud
+    (mix dat:mask cn)
+    ::
+    ++  mask
       ^-  hexb:bc
       %+  drop:byt:bc  26
       %-  sha256:bc
       %-  cat:byt:bc
-      :~  [33 (compress-point payment.basepoints.u.oc.lar)]
-          [33 (compress-point payment.basepoints.u.ac.lar)]
+      :~  [33 (compress-point oc)]
+          [33 (compress-point ac)]
       ==
     --
   ::
   ++  funding
     |%
+    ::
+    ++  tx
+      |=  $:  lpk=pubkey              ::  local pubkey
+              rpk=pubkey              ::  remote pubkey
+              amt=sats:bc             ::  funding amount
+              ins=(list input:tx:bc)  ::  funding inputs
+              chg=output:tx:bc        ::  change output
+              ws=(list witness)       ::  input witnesses
+          ==
+      ^-  data:^tx
+      :-  :*  is=ins
+              os=(sort-outputs:bip69 ~[(output lpk rpk amt) chg])
+              locktime=0
+              nversion=2
+              segwit=(some 1)
+          ==
+          ws=ws
+    ::
     ++  output
       |=  [p1=pubkey p2=pubkey amt=sats:bc]
       ^-  output:tx:bc
@@ -72,52 +125,251 @@
         ==
         ~[%op-2 %op-checkmultisig]
       ==
-    ::
-    ++  tx
-      |=  $:  lpk=pubkey              ::  local pubkey
-              rpk=pubkey              ::  remote pubkey
-              amt=sats:bc             ::  funding amount
-              ins=(list input:tx:bc)  ::  funding inputs
-              chg=output:tx:bc        ::  change output
-              ws=(list witness)       ::  input witnesses
-          ==
-      |^  ^-  data:^tx
-      :-  :*  is=ins
-              os=outputs
-              locktime=0
-              nversion=2
-              segwit=(some 1)
-          ==
-          ws=ws
-      ::
-      ++  outputs
-        ^-  (list output:tx:bc)
-        %-  sort-outputs:bip69
-          ~[(output lpk rpk amt) chg]
-      --
     --
   ::
   ++  commitment
     |%
-    ::  +input
-    ::    generate input from funding-outpoint sequence:
-    ::    upper 8 bits are 0x80, lower 24 bits are upper
-    ::    24 bits of the obscured commitment number
+    ::  +tx:commitment:bolt-tx:
+    ::
+    ::    Commitment Transaction Construction
+    ::
+    ::    This section ties the previous sections together to
+    ::    detail the algorithm for constructing the commitment
+    ::    transaction for one peer: given that peer's
+    ::    dust_limit_satoshis, the current feerate_per_kw, the
+    ::    amounts due to each peer (to_local and to_remote),
+    ::    and all committed HTLCs:
+    ::
+    ::    Initialize the commitment transaction input and
+    ::    locktime, as specified in Commitment Transaction.
+    ::
+    ::    Calculate which committed HTLCs need to be trimmed
+    ::      (see Trimmed Outputs).
+    ::
+    ::    Calculate the base commitment transaction fee.
+    ::
+    ::    Subtract this base fee from the funder (either
+    ::      to_local or to_remote). If option_anchor_outputs
+    ::      applies to the commitment transaction, also
+    ::      subtract two times the fixed anchor size of 330 sats
+    ::      from the funder (either to_local or to_remote).
+    ::
+    ::    For every offered HTLC, if it is not trimmed, add an
+    ::      offered HTLC output.
+    ::
+    ::    For every received HTLC, if it is not trimmed, add
+    ::      an received HTLC output.
+    ::
+    ::    If the to_local amount is greater or equal to
+    ::      dust_limit_satoshis, add a to_local output.
+    ::
+    ::    If the to_remote amount is greater or equal to
+    ::      dust_limit_satoshis, add a to_remote output.
+    ::
+    ::    If option_anchor_outputs applies to the commitment
+    ::      transaction:
+    ::
+    ::      if to_local exists or there are untrimmed HTLCs,
+    ::        add a to_local_anchor output
+    ::
+    ::      if to_remote exists or there are untrimmed HTLCs,
+    ::        add a to_remote_anchor output
+    ::
+    ::    Sort the outputs into BIP 69+CLTV order.
+    ::
+    ++  tx
+      |=  $:  c=chan
+              to-local=msats
+              to-remote=msats
+              keyring=commitment-keyring
+              our=?
+          ==
+      |^  ^-  data:^tx
+      =|  txd=data:^tx
+      =:  nversion.txd  2
+          locktime.txd  (locktime obscured-commitment-number)
+          segwit.txd    (some 1)
+      ==
+      ::
+      =.  is.txd
+        ~[(input funding-outpoint.c obscured-commitment-number)]
+      ::
+      =.  os.txd
+        =/  local-out=output:tx:bc
+          %:  local-output
+            revocation-key.keyring
+            to-local-key.keyring
+            to-self-delay.c
+            to-local-sats
+          ==
+        =/  remote-out=output:tx:bc
+          (remote-output to-remote-key.keyring to-remote-sats)
+        (sort-outputs:bip69 ~[local-out remote-out])
+      ::
+      =.  ws.txd
+        =/  pka=pubkey     funding-pubkey.our.c
+        =/  pkb=pubkey     funding-pubkey.her.c
+        =/  sga=signature  funding-signature.our.c
+        =/  sgb=signature  funding-signature.her.c
+        =/  sig=(list signature)
+          %-  sort-signatures
+          :~  [sga pka]
+              [sgb pkb]
+          ==
+        =/  ws=script:script
+          (output-script:funding pka pkb)
+        :~
+          %-  zing
+          :~  ~[0^0x0]
+              sig
+              ~[(en:script ws)]
+          ==
+        ==
+      ::
+      txd
+      ::
+      ++  fee
+        ^-  sats:bc
+        (base-fee feerate-per-kw.c anchor-outputs.c num-htlcs)
+      ::
+      ++  num-htlcs
+        ^-  @ud
+        %+  add
+        %-  lent  offered.commit-state.our.c
+        %-  lent  received.commit-state.our.c
+      ::
+      ++  obscured-commitment-number
+        ^-  @ud
+        %^    obscure-commitment-number
+            commitment-number.commit-state.our.c
+          payment.basepoints:open-state
+        payment.basepoints:accept-state
+      ::
+      ++  open-state    ?:(initiator.c our.c her.c)
+      ::
+      ++  accept-state  ?:(initiator.c her.c our.c)
+      ::
+      ++  to-local-sats
+        ?:  initiator.c
+          (sub (msats-to-sats to-local) fee)
+        (msats-to-sats to-local)
+      ::
+      ++  to-remote-sats
+        ?:  initiator.c
+          (msats-to-sats to-remote)
+        (sub (msats-to-sats to-remote) fee)
+      --
+    ::
+    ++  expected-weight
+      |=  [anchor=? num-htlcs=@ud]
+      ^-  @ud
+      ?.  anchor
+        (add 724 (mul 172 num-htlcs))
+      (add 1.124 (mul 172 num-htlcs))
+    ::
+    ++  fee-by-weight
+      |=  [feerate-per-kw=@ud weight=@ud]
+      ^-  @ud
+      (div (mul weight feerate-per-kw) 1.000)
+    ::
+    ++  base-fee
+      |=  [feerate-per-kw=@ud anchor=? num-htlcs=@ud]
+      ^-  sats:bc
+      %+  fee-by-weight
+        feerate-per-kw
+      (expected-weight anchor num-htlcs)
+    ::  +locktime:commitment:bolt-tx:
+    ::
+    ::    Upper 8 bits are 0x20, lower 24 bits are the lower
+    ::    24 bits of the obscured commitment number.
+    ::
+    ++  locktime
+      |=  ocn=@ud
+      %+  con  (lsh [3 3] 0x20)
+      (dis 0xff.ffff ocn)
+    ::  +sequence:commitment:bolt-tx:
+    ::
+    ::    Upper 8 bits are 0x80, lower 24 bits are upper
+    ::    24 bits of the obscured commitment number.
+    ::
+    ++  sequence
+      |=  ocn=@ud
+      ^-  hexb:bc
+      :-  4
+      %+  con  (lsh [3 3] 0x80)
+      %+  rsh  [3 3]
+      (dis 0xffff.ff00.0000 ocn)
+    ::
+    ++  anchor-size  ^-(sats:bc 330)
+    ::  +input:commitment:bolt-tx: generate input from funding-outpoint
     ::
     ++  input
-      |=  o=outpoint
+      |=  [o=outpoint ocn=@ud]
       ^-  input:tx:bc
-      *input:tx:bc
+      :*  txid=txid.o
+          pos=pos.o
+          sequence=(sequence ocn)
+          script-sig=~
+          pubkey=~
+          value=sats.o
+      ==
+    ::
+    ++  local-output
+      |=  $:  =revocation=pubkey
+              =local-delayed=pubkey
+              to-self-delay=@ud
+              to-local=sats:bc
+          ==
+      |^  ^-  output:tx:bc
+      :*  script-pubkey=(p2wsh script)
+          value=to-local
+      ==
+      ++  script
+        %:  local-output-script
+          revocation-pubkey=revocation-pubkey
+          local-delayed-pubkey=local-delayed-pubkey
+          to-self-delay=to-self-delay
+        ==
+      --
     ::
     ++  remote-output
-      |=  $:  =pubkey      ::  remote pubkey
-              amt=sats:bc  ::  amt to remote
-          ==
+      |=  [=remote=pubkey to-remote=sats:bc]
       ^-  output:tx:bc
-      =/  script=hexb:bc
-        %-  p2wsh
-        %-  remote-output-script  pubkey
-      [script-pubkey=script value=amt]
+      :*  script-pubkey=(p2wpkh remote-pubkey)
+          value=to-remote
+      ==
+    ::
+    ++  anchor-output
+      |=  [=pubkey amt=sats:bc]
+      |^  ^-  output:tx:bc
+      :*  script-pubkey=(p2wsh script)
+          value=amt
+      ==
+      ++  script  (anchor-output-script pubkey)
+      --
+    ::
+    ++  local-output-script
+      |=  $:  =revocation=pubkey
+              =local-delayed=pubkey
+              to-self-delay=@ud
+          ==
+     |^  ^-  script:script
+     :~  %op-if
+         [%op-pushdata revocation-pubkey]
+         %op-else
+         [%op-pushdata to-self-delay-byts]
+         %op-checksequenceverify
+         %op-drop
+         [%op-pushdata local-delayed-pubkey]
+         %op-endif
+         %op-checksig
+      ==
+      ++  to-self-delay-byts
+        %-  flip:byt:bc
+        :*  wid=2
+            dat=to-self-delay
+        ==
+      --
     ::
     ++  remote-output-script
       |=  =pubkey
@@ -126,37 +378,6 @@
           %op-1
           %op-checksequenceverify
       ==
-    ::
-    ++  local-output
-      |=  $:  rvk=pubkey   ::  revocation pubkey
-              ldk=pubkey   ::  local delayed pubkey
-              amt=sats:bc  ::  amount to local
-          ==
-      ^-  output:tx:bc
-      =/  script=hexb:bc
-        %-  p2wsh
-        %+  local-output-script  rvk  ldk
-      [script-pubkey=script value=amt]
-    ::
-    ++  local-output-script
-      |=  [rv=pubkey ld=pubkey]
-      :~  %op-if
-          [%op-pushdata rv]
-          %op-else
-          %op-checksequenceverify
-          %op-drop
-          [%op-pushdata ld]
-          %op-endif
-          %op-checksig
-      ==
-    ::
-    ++  anchor-output
-      |=  [=pubkey amt=sats:bc]
-      ^-  output:tx:bc
-      =/  script=hexb:bc
-        %-  p2wsh
-        %-  anchor-output-script  pubkey
-      [script-pubkey=script value=amt]
     ::
     ++  anchor-output-script
       |=  =pubkey
@@ -168,27 +389,6 @@
           %op-checksequenceverify
           %op-endif
       ==
-    ::
-    ++  tx
-      |=  [c=chan our=?]
-      |^  ^-  data:^tx
-      ::  returns txid and full tx and signature?
-      ::  Algo:
-      ::  generate HTLC outputs
-      ::  nVersion: 02000000
-      ::  nLocktime: upper 8 bits are 0x20, lower 24 bits are
-      ::  the lower 24 bits of the obscured commitment number
-      %-  chlen-tx
-      ?:  our
-        our.c
-      her.c
-      ::
-      ++  chlen-tx
-        |=  =chlen
-        ::  offered.commit-state.chlen
-        ::  received.commit-state.chlen
-        *data:^tx
-      --
     --
   ::
   ++  htlc
@@ -225,39 +425,89 @@
         ==
       --
     ::
+    ++  is-trimmed
+      |=  [c=chan h=^htlc]
+      (lth (msats-to-sats amount-msat.h) dust-limit.c)
+    ::
     ++  offered-script
       |=  [c=chan h=htlc-pend]
-      :~  %op-dup
-          %op-hash160
-          [%op-pushdata (hash-160:bc revocation-pubkey.h)]
-          %op-equal
-          %op-if
-          %op-checksig
-          %op-else
-          [%op-pushdata funding-pubkey.her.c]
-          %op-swap
-          %op-size
-          [%op-pushdata [1 32]]
-          %op-equal
-          %op-notif
-          %op-drop
-          %op-2
-          %op-swap
-          [%op-pushdata funding-pubkey.our.c]
-          %op-2
-          %op-checkmultisig
-          %op-else
-          %op-hash160
-          [%op-pushdata (hash-160:bc payment-hash.htlc.h)]
-          %op-equalverify
-          %op-checksig
-          %op-endif
-          %op-endif
-      ==
+      |^
+      ?:  anchor-outputs.c
+        with-anchors
+      without-anchors
+      ::
+      ++  with-anchors
+        :~  %op-dup
+            %op-hash160
+            [%op-pushdata (hash-160:bc revocation-pubkey.h)]
+            %op-equal
+            %op-if
+            %op-checksig
+            %op-else
+            [%op-pushdata !!]
+            %op-swap
+            %op-size
+            [%op-pushdata [1 32]]
+            %op-equal
+            %op-notif
+            %op-drop
+            %op-2
+            %op-swap
+            [%op-pushdata !!]
+            %op-2
+            %op-checkmultisig
+            %op-else
+            %op-hash160
+            [%op-pushdata (hash-160:bc payment-hash.htlc.h)]
+            %op-equalverify
+            %op-checksig
+            %op-endif
+            %op-1
+            %op-checksequenceverify
+            %op-drop
+            %op-endif
+        ==
+      ::
+      ++  without-anchors
+        :~  %op-dup
+            %op-hash160
+            [%op-pushdata (hash-160:bc revocation-pubkey.h)]
+            %op-equal
+            %op-if
+            %op-checksig
+            %op-else
+            [%op-pushdata funding-pubkey.her.c]
+            %op-swap
+            %op-size
+            [%op-pushdata [1 32]]
+            %op-equal
+            %op-notif
+            %op-drop
+            %op-2
+            %op-swap
+            [%op-pushdata funding-pubkey.our.c]
+            %op-2
+            %op-checkmultisig
+            %op-else
+            %op-hash160
+            [%op-pushdata (hash-160:bc payment-hash.htlc.h)]
+            %op-equalverify
+            %op-checksig
+            %op-endif
+            %op-endif
+        ==
+      --
     ::
     ++  received-script
       |=  [c=chan h=htlc-pend]
-      ~
+      |^
+      ?:  anchor-outputs.c
+        with-anchors
+      without-anchors
+      ++  with-anchors  ~
+      ::
+      ++  without-anchors  ~
+      --
     ::
     ++  timeout-tx
       |=  c=chan
@@ -331,7 +581,10 @@
       :-  (en:csiz:bc (lent w))
       %-  zing
       %+  turn  w
-      |=  b=hexb:bc  ~[(en:csiz:bc wid.b) b]
+      |=  b=hexb:bc
+        ?:  =(0 wid.b)
+          ~[1^0x0]
+        ~[(en:csiz:bc wid.b) b]
     --
   ::
   ++  de
@@ -428,5 +681,56 @@
   ++  sort-inputs
     |=  is=(list input:tx:bc)
     (sort is input-lte)
+  --
+::
+++  keys
+  =,  secp:crypto
+  |%
+  ++  derive-simple
+    |=  [per-commitment-point=point base=point]
+    ^-  pubkey
+    ~|  "Unimplemented"
+    !!
+  ::
+  ++  derive-revocation
+    |=  [per-commitment-point=point base=point]
+    ~|  "Unimplemented"
+    !!
+  ::
+  ++  per-commitment-secret
+    |=  [seed=hexb:bc i=@ud]
+    |^  ^-  hexb:bc
+    =/  p=hexb:bc  seed
+    =/  b=@ud      47
+    |-
+    ?:  =(0 b)
+      p
+    ?:  =(1 (get-bit b p))
+      %_  $
+        b  (dec b)
+        p  (sha256:bc (flip-bit b p))
+      ==
+    $(b (dec b), p p)
+    ::
+    ++  get-bit
+      |=  [n=@ b=hexb:bc]
+      ~|  "Unimplemented"
+      !!
+    ::
+    ++  flip-bit
+      |=  [n=@ b=hexb:bc]
+      ~|  "Unimplemented"
+      !!
+    --
+  ::
+  ++  derive-commitment-keys
+    |=  [per-commitment-point=point =basepoints our=?]
+    ^-  commitment-keyring
+    :*  local-htlc-key=0^0x0
+        remote-htlc-key=0^0x0
+        to-local-key=0^0x0
+        to-remote-key=0^0x0
+        revocation-key=0^0x0
+    ==
   --
 --

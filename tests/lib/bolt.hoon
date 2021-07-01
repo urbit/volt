@@ -5,21 +5,16 @@
 ++  test-obscure-commitment-number
   =,  bolt-tx:bolt
   =,  secp:crypto
-  =|  lar=larva-chan:bolt
-  =|  oc=open-channel:msg:bolt
-  =|  ac=accept-channel:msg:bolt
-  =.  payment.basepoints.oc
+  =/  oc=point
     %-  decompress-point:secp256k1
     0x3.4f35.5bdc.b7cc.0af7.28ef.3cce.b961.5d90.684b.b5b2.ca5f.859a.b0f0.b704.0758.71aa
-  =.  payment.basepoints.ac
+  =/  ac=point
     %-  decompress-point:secp256k1
     0x3.2c0b.7cf9.5324.a07d.0539.8b24.0174.dc0c.2be4.44d9.6b15.9aa6.c7f7.b1e6.6868.0991
-  =.  oc.lar  (some oc)
-  =.  ac.lar  (some ac)
   =/  cn=@ud  42
   %+  expect-eq
     !>(`@ux`(mix 0x2bb0.3852.1914 cn))
-    !>(`@ux`(obscured-commitment-number lar cn))
+    !>(`@ux`(obscure-commitment-number cn oc ac))
 ::
 ++  sighash-test-vectors
   =,  bitcoin-txu:bolt
@@ -261,5 +256,174 @@
     :*  script-pubkey=[wid=22 dat=0x14.3ca3.3c2e.4446.f4a3.05f2.3c80.df8a.d1af.dcf6.52f9]
         value=4.989.986.080
     ==
+  --
+::
+::  test vectors from https://github.com/lightningnetwork/lightning-rfc/blob/master/03-transactions.md#appendix-c-commitment-and-htlc-transaction-test-vectors
+::
+++  test-htlc-and-commitment
+  |^
+  ;:  weld
+      check-simple-commitment
+  ==
+  ::
+  ++  check-simple-commitment
+    =,  bolt-tx:bolt
+    |^
+    %+  expect-eq
+      !>  output-commit-tx
+      !>  %-  segwit-encode:bitcoin-txu
+          %:  tx:commitment
+            c=test-channel
+            to-local=to-local-msat
+            to-remote=to-remote-msat
+            keyring=keyring
+            our=%.y
+          ==
+    ::
+    ++  test-channel
+      =|  ch=chan
+      %_  ch
+        initiator         %.y
+        anchor-outputs    %.n
+        ::
+        dust-limit        546
+        funding-outpoint  funding-outpoint
+        funding-sats      funding-amount
+        to-self-delay     144
+        feerate-per-kw    local-feerate-per-kw
+        ::
+        funding-pubkey.our  local-funding-pubkey
+        funding-pubkey.her  remote-funding-pubkey
+        ::
+        funding-signature.our  local-funding-sig
+        funding-signature.her  remote-funding-sig
+        ::
+        payment.basepoints.our  local-payment-basepoint
+        payment.basepoints.her  remote-payment-basepoint
+        ::
+        commitment-number.commit-state.our  42
+        commitment-number.commit-state.her  42
+      ==
+    ::
+    ++  keyring
+      =|  kr=commitment-keyring
+      %_  kr
+        to-local-key    local-delayed-pubkey
+        to-remote-key   remote-pubkey
+        revocation-key  local-revocation-pubkey
+      ==
+    ::
+    ++  to-local-msat
+      ^-  msats
+      7.000.000.000
+    ::
+    ++  to-remote-msat
+      ^-  msats
+      3.000.000.000
+    ::
+    ++  local-feerate-per-kw
+      ^-  @ud
+      15.000
+    ::
+    ++  output-commit-tx
+      ^-  hexb:bc
+      :-  346
+      0x200.0000.0001.01be.f67e.4e2f.b9dd.eeb3.
+       4619.73cd.4c62.abb3.5050.b1ad.d772.995b.
+       820b.584a.4884.8900.0000.0000.38b0.2b80.
+       02c0.c62d.0000.0000.0016.0014.ccf1.af2f.
+       2aab.ee14.bb40.fa38.51ab.2301.de84.3110.
+       54a5.6a00.0000.0000.2200.204a.db4e.2f00.
+       643d.b396.dd12.0d4e.7dc1.7625.f5f2.c11a.
+       40d8.57ac.cc86.2d6b.7dd8.0e04.0047.3044.
+       0220.51b7.5c73.198c.6dee.e1a8.7587.1c39.
+       6183.2909.acd2.97c6.b908.d59e.3319.e518.
+       5a46.0220.55c4.1937.9c50.51a7.8d00.dbbc.
+       e11b.5b66.4a0c.2281.5fbc.c6fc.ef6b.1937.
+       c383.6939.0148.3045.0221.00f5.1d2e.566a.
+       70ba.740f.c5d8.c0f0.7b9b.93d2.ed74.1c3c.
+       0860.c613.173d.e7d3.9e79.6802.2041.376d.
+       520e.9c0e.1ad5.2248.ddf4.b22e.12be.8763.
+       007d.f977.253e.f45a.4ca3.bdb7.c001.4752.
+       2102.3da0.92f6.980e.58d2.c037.1731.80e9.
+       a465.4760.26ee.50f9.6695.963e.8efe.436f.
+       54eb.2103.0e9f.7b62.3d2c.cc7c.9bd4.4d66.
+       d5ce.21ce.504c.0acf.6385.a132.cec6.d3c3.
+       9fa7.11c1.52ae.3e19.5220
+    --
+  ::
+  ++  funding-txid
+    ^-  hexb:bc
+    :-  32
+    0x8984.484a.580b.825b.9972.d7ad.b150.50b3.ab62.4ccd.7319.46b3.eedd.b92f.4e7e.f6be
+  ::
+  ++  funding-output-index  0
+  ::
+  ++  funding-amount  10.000.000
+  ::
+  ++  funding-outpoint
+    ^-  outpoint:bolt
+    :*  txid=funding-txid
+        pos=funding-output-index
+        sats=funding-amount
+    ==
+  ::
+  ++  remote-funding-sig
+    ^-  hexb:bc
+    :-  72
+    0x3045.0221.00f5.1d2e.566a.70ba.740f.c5d8.c0f0.7b9b.93d2.ed74.1c3c.0860.c613.173d.e7d3.9e79.6802.2041.376d.520e.9c0e.1ad5.2248.ddf4.b22e.12be.8763.007d.f977.253e.f45a.4ca3.bdb7.c001
+  ::
+  ++  local-funding-sig
+    ^-  hexb:bc
+    :-  71
+    0x30.4402.2051.b75c.7319.8c6d.eee1.a875.871c.3961.8329.09ac.d297.c6b9.08d5.9e33.19e5.185a.4602.2055.c419.379c.5051.a78d.00db.bce1.1b5b.664a.0c22.815f.bcc6.fcef.6b19.37c3.8369.3901
+  ::
+  ++  local-funding-privkey
+    ^-  hexb:bc
+    :-  33
+    0x30.ff49.56bb.dd32.22d4.4cc5.e8a1.261d.ab1e.0795.7bda.c5ae.88fe.3261.ef32.1f37.4901
+  ::
+  ++  local-funding-pubkey
+    ^-  hexb:bc
+    :-  33
+    0x2.3da0.92f6.980e.58d2.c037.1731.80e9.a465.4760.26ee.50f9.6695.963e.8efe.436f.54eb
+  ::
+  ++  remote-funding-pubkey
+    ^-  hexb:bc
+    :-  33
+    0x3.0e9f.7b62.3d2c.cc7c.9bd4.4d66.d5ce.21ce.504c.0acf.6385.a132.cec6.d3c3.9fa7.11c1
+  ::
+  ++  remote-pubkey
+    ^-  hexb:bc
+    :-  33
+    0x3.9485.4aa6.eab5.b2a8.122c.c726.e9dd.ed05.3a21.84d8.8256.8168.26d6.231c.068d.4a5b
+  ::
+  ++  local-privkey
+    ^-  hexb:bc
+    :-  33
+    0xbb.13b1.21cd.c357.cd2e.608b.0aea.294a.fca3.6e2b.34cf.958e.2e64.51a2.f274.6944.9101
+  ::
+  ++  local-pubkey
+    ^-  hexb:bc
+    :-  33
+    0x3.0d41.7a46.9463.84f8.8d5f.3337.267c.5e57.9765.875d.c4da.ca81.3e21.734b.1406.39e7
+  ::
+  ++  local-delayed-pubkey
+    ^-  hexb:bc
+    :-  33
+    0x3.fd59.6052.8dc1.5201.4952.efdb.702a.88f7.1e3c.1653.b231.4431.701e.c77e.57fd.e83c
+  ::
+  ++  local-revocation-pubkey
+    ^-  hexb:bc
+    :-  33
+    0x2.12a1.40cd.0c65.39d0.7cd0.8dfe.0998.4dec.3251.ea80.8b89.2efe.ac3e.de94.02bf.2b19
+  ::
+  ++  local-payment-basepoint
+    %-  decompress-point:secp256k1:secp:crypto
+    0x3.4f35.5bdc.b7cc.0af7.28ef.3cce.b961.5d90.684b.b5b2.ca5f.859a.b0f0.b704.0758.71aa
+  ::
+  ++  remote-payment-basepoint
+    %-  decompress-point:secp256k1:secp:crypto
+    0x3.2c0b.7cf9.5324.a07d.0539.8b24.0174.dc0c.2be4.44d9.6b15.9aa6.c7f7.b1e6.6868.0991
   --
 --
