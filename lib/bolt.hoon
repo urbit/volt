@@ -410,7 +410,9 @@
   ::
   ++  input-lte
     |=  [a=input:tx:bc b=input:tx:bc]
-    %.y
+    ?.  =(dat.txid.a dat.txid.b)
+      (lth dat.txid.a dat.txid.b)
+    (lte pos.a pos.b)
   ::
   ++  sort-outputs
     |=  os=(list output:tx:bc)
