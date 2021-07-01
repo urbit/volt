@@ -71,34 +71,45 @@
 ::
 ++  test-segwit-decode
   |^
-  ;:  weld
-    check-locktime
-    check-is
-    check-os
-    check-ws
-  ==
+  %+  expect-eq
+    !>(decoded-tx)
+    !>((segwit-decode:bitcoin-txu:bolt raw-tx))
   ::
-  ++  check-locktime
-    %+  expect-eq
-      !>(0)
-      !>(locktime:(segwit-decode:bitcoin-txu:bolt raw-tx))
+  ++  decoded-inputs
+    ^-  (list input:tx:bc)
+    :~  :*  txid=input-txid
+            pos=0
+            sequence=[wid=4 dat=0x0]
+            script-sig=~
+            pubkey=~
+            value=0
+        ==
+    ==
+  ::
+  ++  decoded-outputs
+    ^-  (list output:tx:bc)
+    :~  :*  script-pubkey=output1-script-pubkey
+            value=25.000
+        ==
+        :*  script-pubkey=output2-script-pubkey
+            value=9.999.967.363
+        ==
+    ==
+  ::
+  ++  decoded-tx
+    ^-  data:tx:bolt
+    :_  ws=~[~[witness-part-1 witness-part-2]]
+    :*  is=decoded-inputs
+        os=decoded-outputs
+        locktime=0
+        nversion=2
+        segwit=(some 1)
+    ==
   ::
   ++  input-txid
     ^-  hexb:bc
     :-  32
     0x6371.37c2.8d8f.a677.e75a.851f.a93a.7323.57f4.32ea.e311.6075.9eb2.774a.45d6.e8ca
-  ::
-  ++  check-is
-    %+  expect-eq
-      !>  :~  :*  txid=input-txid
-                  pos=0
-                  sequence=4^0x0
-                  script-sig=~
-                  pubkey=~
-                  value=0
-              ==
-          ==
-      !>  is:(segwit-decode:bitcoin-txu:bolt raw-tx)
   ::
   ++  output1-script-pubkey
     ^-  hexb:bc
@@ -110,31 +121,14 @@
     :-  22
     0x14.503c.901b.fb25.268d.74a0.b4a4.0387.8215.4b8f.ad6a
   ::
-  ++  check-os
-    %+  expect-eq
-      !>  :~  :*  script-pubkey=output1-script-pubkey
-                  value=25.000
-              ==
-              :*  script-pubkey=output2-script-pubkey
-                  value=9.999.967.363
-              ==
-          ==
-      !>  os:(segwit-decode:bitcoin-txu:bolt raw-tx)
-  ::
-  ++  check-ws
-    %+  expect-eq
-      !>  ~[~[w1 w2]]
-      !>  ws:(segwit-decode:bitcoin-txu:bolt raw-tx)
-  ::
-  ++  w1
+  ++  witness-part-1
     ^-  hexb:bc
     :-  72
     0x3045.0221.0081.82e7.a153.8235.4a50.3913.85f2.
-      9214.9f02.0e3f.b422.0f45.0e13.8d9b.32cf.999f.
-      2002.203f.6135.1531.335b.3965.a166.d2b3.d47b.
-      a909.ae1b.2c0c.5821.f293.40eb.31b4.6c06.2301
-  ::
-  ++  w2
+    9214.9f02.0e3f.b422.0f45.0e13.8d9b.32cf.999f.
+    2002.203f.6135.1531.335b.3965.a166.d2b3.d47b.
+    a909.ae1b.2c0c.5821.f293.40eb.31b4.6c06.2301
+  ++  witness-part-2
     ^-  hexb:bc
     :-  33
     0x2.7dc3.13f1.aaa7.723f.2cab.b5fc.9a85.3d60.8b2e.ce4b.3eb3.ba1a.cb23.a742.9c15.fcc8
