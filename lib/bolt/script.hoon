@@ -168,7 +168,7 @@
     ::
       %op-nop                  [1 0x61]
       %op-ver                  [1 0x62]
-      %op-if                   [1 0x64]
+      %op-if                   [1 0x63]
       %op-notif                [1 0x64]
       %op-verif                [1 0x65]
       %op-vernotif             [1 0x66]
