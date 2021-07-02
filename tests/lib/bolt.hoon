@@ -69,11 +69,24 @@
     !>(~[a b c])
     !>((sort-inputs ~[b a c]))
 ::
-++  test-segwit-decode
+++  test-segwit
   |^
-  %+  expect-eq
-    !>(decoded-tx)
-    !>((segwit-decode:bitcoin-txu:bolt raw-tx))
+  ;:  weld
+    check-decode
+    check-encode
+  ==
+  ::
+  ++  check-decode
+    %+  expect-eq
+      !>  decoded-tx
+      !>  %-  segwit-decode:bitcoin-txu:bolt
+          raw-tx
+  ::
+  ++  check-encode
+    %+  expect-eq
+      !>  raw-tx
+      !>  %-  segwit-encode:bitcoin-txu:bolt
+          decoded-tx
   ::
   ++  decoded-inputs
     ^-  (list input:tx:bc)
@@ -128,6 +141,7 @@
     9214.9f02.0e3f.b422.0f45.0e13.8d9b.32cf.999f.
     2002.203f.6135.1531.335b.3965.a166.d2b3.d47b.
     a909.ae1b.2c0c.5821.f293.40eb.31b4.6c06.2301
+  ::
   ++  witness-part-2
     ^-  hexb:bc
     :-  33

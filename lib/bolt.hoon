@@ -328,6 +328,7 @@
       |=  w=^witness
       ^-  hexb:bc
       %-  cat:byt:bc
+      :-  (en:csiz:bc (lent w))
       %-  zing
       %+  turn  w
       |=  b=hexb:bc  ~[(en:csiz:bc wid.b) b]
@@ -366,6 +367,12 @@
     %-  cat:byt:bc
     %-  zing
     :~  ~[(flip:byt:bc 4^nversion.data)]
+        ?:  ?&  ?=(^ segwit.data)
+                ?=(^ ws.data)
+            ==
+          :~  [wid=2 dat=0x1]
+          ==
+        ~
         ~[(en:csiz:bc (lent is.data))]
         (turn is.data input:en:txu:bc)
         ~[(en:csiz:bc (lent os.data))]
