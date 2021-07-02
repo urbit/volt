@@ -19,21 +19,6 @@
     ^-  sats:bc
     (div a 1.000)
   ::
-  ++  outpoint-to-input
-    |=  $:  o=outpoint
-            seq=hexb:bc
-            script-sig=(unit hexb:bc)
-            pubkey=(unit hexb:bc)
-        ==
-    ^-  input:tx:bc
-    :*  txid=txid.o
-        pos=pos.o
-        sequence=seq
-        script-sig=script-sig
-        pubkey=pubkey
-        value=sats.o
-    ==
-  ::
   ++  p2wsh
     |=  s=script:script
     ^-  hexb:bc
