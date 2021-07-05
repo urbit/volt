@@ -669,18 +669,74 @@
   --
 ::
 ++  keys
-  =,  secp:crypto
+  =,  secp256k1:secp:crypto
   |%
-  ++  derive-simple
+  ++  point-hash
+    |=  [a=point b=point]
+    ^-  hexb:bc
+    %-  sha256:bc
+    %-  cat:byt:bc
+    :~  [33 (compress-point a)]
+        [33 (compress-point b)]
+    ==
+  ::
+  ++  add-mul-hash
+    |=  [a=point b=point c=point]
+    %+  add-points
+      %+  mul-point-scalar
+        g:t
+      dat:(point-hash a b)
+    c
+  ::
+  ++  derive-pubkey
     |=  [per-commitment-point=point base=point]
     ^-  pubkey
-    ~|  "Unimplemented"
-    !!
+    :-  33
+    %-  compress-point
+    %^    add-mul-hash
+        per-commitment-point
+      base
+    base
   ::
-  ++  derive-revocation
+  ++  derive-privkey
+    |=  [per-commitment-point=point base=point secret=hexb:bc]
+    ^-  privkey
+    :-  32
+    %+  mod
+      %+  add
+        dat:(point-hash per-commitment-point base)
+      dat.secret
+    n:t
+  ::
+  ++  derive-revocation-pubkey
     |=  [per-commitment-point=point base=point]
-    ~|  "Unimplemented"
-    !!
+    |^  ^-  pubkey
+    :-  33
+    %-  compress-point
+    %+  add-points
+      (mul-point-scalar base dat:r)
+    (mul-point-scalar per-commitment-point dat:c)
+    ::
+    ++  r  (point-hash base per-commitment-point)
+    ++  c  (point-hash per-commitment-point base)
+    --
+  ::
+  ++  derive-revocation-privkey
+    |=  $:  per-commitment-point=point
+            revocation-basepoint=point
+            revocation-basepoint-secret=hexb:bc
+            per-commitment-secret=hexb:bc
+        ==
+    |^  ^-  privkey
+    :-  32
+    %+  mod
+      %+  add
+        (mul dat.revocation-basepoint-secret dat:r)
+      (mul dat.per-commitment-secret dat:c)
+    n:t
+    ++  r  (point-hash revocation-basepoint per-commitment-point)
+    ++  c  (point-hash per-commitment-point revocation-basepoint)
+    --
   ::
   ++  per-commitment-secret
     |=  [seed=hexb:bc i=@ud]
@@ -710,12 +766,26 @@
   ::
   ++  derive-commitment-keys
     |=  [per-commitment-point=point =basepoints our=?]
-    ^-  commitment-keyring
-    :*  local-htlc-key=0^0x0
-        remote-htlc-key=0^0x0
-        to-local-key=0^0x0
-        to-remote-key=0^0x0
-        revocation-key=0^0x0
-    ==
+    |^  ^-  commitment-keyring
+    ?:  our
+      our-keys
+    her-keys
+    ::
+    ++  our-keys
+      :*  local-htlc-key=0^0x0
+          remote-htlc-key=0^0x0
+          to-local-key=0^0x0
+          to-remote-key=0^0x0
+          revocation-key=0^0x0
+      ==
+    ::
+    ++  her-keys
+      :*  local-htlc-key=0^0x0
+          remote-htlc-key=0^0x0
+          to-local-key=0^0x0
+          to-remote-key=0^0x0
+          revocation-key=0^0x0
+      ==
+    --
   --
 --
