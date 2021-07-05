@@ -765,27 +765,36 @@
     --
   ::
   ++  derive-commitment-keys
-    |=  [per-commitment-point=point =basepoints our=?]
+    |=  $:  per-commitment-point=point
+            local=chlen
+            remote=chlen
+            our=?
+        ==
     |^  ^-  commitment-keyring
-    ?:  our
-      our-keys
-    her-keys
+    :*  local-htlc-key=(derive-pubkey per-commitment-point htlc.basepoints.local)
+        remote-htlc-key=(derive-pubkey per-commitment-point htlc.basepoints.remote)
+        to-local-key=(derive-pubkey per-commitment-point to-local-basepoint)
+        to-remote-key=(derive-pubkey per-commitment-point to-remote-basepoint)
+        revocation-key=(derive-revocation-pubkey per-commitment-point revocation-basepoint)
+    ==
     ::
-    ++  our-keys
-      :*  local-htlc-key=0^0x0
-          remote-htlc-key=0^0x0
-          to-local-key=0^0x0
-          to-remote-key=0^0x0
-          revocation-key=0^0x0
-      ==
+    ++  to-local-basepoint
+      ?:  our
+        delayed-payment.basepoints.local
+      delayed-payment.basepoints.remote
     ::
-    ++  her-keys
-      :*  local-htlc-key=0^0x0
-          remote-htlc-key=0^0x0
-          to-local-key=0^0x0
-          to-remote-key=0^0x0
-          revocation-key=0^0x0
-      ==
+    ++  to-remote-basepoint
+      ?:  our
+        payment.basepoints.remote
+      payment.basepoints.local
+    ::
+    ++  revocation-basepoint
+      ?:  our
+        revocation.basepoints.remote
+      revocation.basepoints.local
+    ::
+    ++  local-htlc-basepoint   htlc.basepoints.local
+    ++  remote-htlc-basepoint  htlc.basepoints.remote
     --
   --
 --
