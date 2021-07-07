@@ -261,97 +261,8 @@
 ::
 ::  test vectors from https://github.com/lightningnetwork/lightning-rfc/blob/master/03-transactions.md#appendix-c-commitment-and-htlc-transaction-test-vectors
 ::
-++  test-htlc-and-commitment
-  |^
-  ;:  weld
-      check-simple-commitment
-  ==
-  ::
-  ++  check-simple-commitment
-    =,  bolt-tx:bolt
-    |^
-    %+  expect-eq
-      !>  output-commit-tx
-      !>  %-  segwit-encode:bitcoin-txu
-          %:  tx:commitment
-            c=test-channel
-            to-local=to-local-msat
-            to-remote=to-remote-msat
-            keyring=keyring
-            our=%.y
-          ==
-    ::
-    ++  test-channel
-      =|  ch=chan
-      %_  ch
-        initiator         %.y
-        anchor-outputs    %.n
-        ::
-        dust-limit        546
-        funding-outpoint  funding-outpoint
-        funding-sats      funding-amount
-        to-self-delay     144
-        feerate-per-kw    local-feerate-per-kw
-        ::
-        funding-pubkey.our  local-funding-pubkey
-        funding-pubkey.her  remote-funding-pubkey
-        ::
-        funding-signature.our  local-funding-sig
-        funding-signature.her  remote-funding-sig
-        ::
-        payment.basepoints.our  local-payment-basepoint
-        payment.basepoints.her  remote-payment-basepoint
-        ::
-        commitment-number.commit-state.our  42
-        commitment-number.commit-state.her  42
-      ==
-    ::
-    ++  keyring
-      =|  kr=commitment-keyring
-      %_  kr
-        to-local-key    local-delayed-pubkey
-        to-remote-key   remote-pubkey
-        revocation-key  local-revocation-pubkey
-      ==
-    ::
-    ++  to-local-msat
-      ^-  msats
-      7.000.000.000
-    ::
-    ++  to-remote-msat
-      ^-  msats
-      3.000.000.000
-    ::
-    ++  local-feerate-per-kw
-      ^-  @ud
-      15.000
-    ::
-    ++  output-commit-tx
-      ^-  hexb:bc
-      :-  346
-      0x200.0000.0001.01be.f67e.4e2f.b9dd.eeb3.
-       4619.73cd.4c62.abb3.5050.b1ad.d772.995b.
-       820b.584a.4884.8900.0000.0000.38b0.2b80.
-       02c0.c62d.0000.0000.0016.0014.ccf1.af2f.
-       2aab.ee14.bb40.fa38.51ab.2301.de84.3110.
-       54a5.6a00.0000.0000.2200.204a.db4e.2f00.
-       643d.b396.dd12.0d4e.7dc1.7625.f5f2.c11a.
-       40d8.57ac.cc86.2d6b.7dd8.0e04.0047.3044.
-       0220.51b7.5c73.198c.6dee.e1a8.7587.1c39.
-       6183.2909.acd2.97c6.b908.d59e.3319.e518.
-       5a46.0220.55c4.1937.9c50.51a7.8d00.dbbc.
-       e11b.5b66.4a0c.2281.5fbc.c6fc.ef6b.1937.
-       c383.6939.0148.3045.0221.00f5.1d2e.566a.
-       70ba.740f.c5d8.c0f0.7b9b.93d2.ed74.1c3c.
-       0860.c613.173d.e7d3.9e79.6802.2041.376d.
-       520e.9c0e.1ad5.2248.ddf4.b22e.12be.8763.
-       007d.f977.253e.f45a.4ca3.bdb7.c001.4752.
-       2102.3da0.92f6.980e.58d2.c037.1731.80e9.
-       a465.4760.26ee.50f9.6695.963e.8efe.436f.
-       54eb.2103.0e9f.7b62.3d2c.cc7c.9bd4.4d66.
-       d5ce.21ce.504c.0acf.6385.a132.cec6.d3c3.
-       9fa7.11c1.52ae.3e19.5220
-    --
+++  tx-test
+  |%
   ::
   ++  funding-txid
     ^-  hexb:bc
@@ -372,12 +283,20 @@
   ++  remote-funding-sig
     ^-  hexb:bc
     :-  72
-    0x3045.0221.00f5.1d2e.566a.70ba.740f.c5d8.c0f0.7b9b.93d2.ed74.1c3c.0860.c613.173d.e7d3.9e79.6802.2041.376d.520e.9c0e.1ad5.2248.ddf4.b22e.12be.8763.007d.f977.253e.f45a.4ca3.bdb7.c001
+    0x3045.0221.00f5.1d2e.566a.70ba.740f.c5d8.
+      c0f0.7b9b.93d2.ed74.1c3c.0860.c613.173d.
+      e7d3.9e79.6802.2041.376d.520e.9c0e.1ad5.
+      2248.ddf4.b22e.12be.8763.007d.f977.253e.
+      f45a.4ca3.bdb7.c001
   ::
   ++  local-funding-sig
     ^-  hexb:bc
     :-  71
-    0x30.4402.2051.b75c.7319.8c6d.eee1.a875.871c.3961.8329.09ac.d297.c6b9.08d5.9e33.19e5.185a.4602.2055.c419.379c.5051.a78d.00db.bce1.1b5b.664a.0c22.815f.bcc6.fcef.6b19.37c3.8369.3901
+    0x30.4402.2051.b75c.7319.8c6d.eee1.a875.
+    871c.3961.8329.09ac.d297.c6b9.08d5.9e33.
+    19e5.185a.4602.2055.c419.379c.5051.a78d.
+    00db.bce1.1b5b.664a.0c22.815f.bcc6.fcef.
+    6b19.37c3.8369.3901
   ::
   ++  local-funding-privkey
     ^-  hexb:bc
@@ -426,7 +345,218 @@
   ++  remote-payment-basepoint
     %-  decompress-point:secp256k1:secp:crypto
     0x3.2c0b.7cf9.5324.a07d.0539.8b24.0174.dc0c.2be4.44d9.6b15.9aa6.c7f7.b1e6.6868.0991
+  ::
+  ++  keyring
+    :*  local-htlc-key=local-pubkey
+        remote-htlc-key=remote-pubkey
+        to-local-key=local-delayed-pubkey
+        to-remote-key=remote-pubkey
+        revocation-key=local-revocation-pubkey
+    ==
+  ::
+  ++  channel
+    ^-  chan
+    =|  ch=chan
+    %_  ch
+      initiator         %.y
+      anchor-outputs    %.n
+      dust-limit        546
+      funding-outpoint  funding-outpoint
+      funding-sats      funding-amount
+      feerate-per-kw    0
+      to-self-delay     144
+      ::
+      funding-pubkey.our  local-funding-pubkey
+      funding-pubkey.her  remote-funding-pubkey
+      ::
+      funding-signature.our  local-funding-sig
+      funding-signature.her  remote-funding-sig
+      ::
+      payment.basepoints.our  local-payment-basepoint
+      payment.basepoints.her  remote-payment-basepoint
+      ::
+      commitment-number.commit-state.our  42
+      commitment-number.commit-state.her  42
+    ==
   --
+::
+++  test-simple-commitment
+  |^
+  %+  expect-eq
+    !>  output-commit-tx
+    !>  %-  segwit-encode:bitcoin-txu:bolt
+        %:  tx:commitment:bolt-tx:bolt
+          c=test-channel
+          to-local=to-local-msat
+          to-remote=to-remote-msat
+          keyring=keyring:tx-test
+          our=%.y
+        ==
+  ::
+  ++  test-channel
+    ^-  chan
+    =+  c=channel:tx-test
+    %_  c
+      feerate-per-kw   local-feerate-per-kw
+    ==
+  ::
+  ++  to-local-msat
+    ^-  msats
+    7.000.000.000
+  ::
+  ++  to-remote-msat
+    ^-  msats
+    3.000.000.000
+  ::
+  ++  local-feerate-per-kw
+    ^-  @ud
+    15.000
+  ::
+  ++  output-commit-tx
+    ^-  hexb:bc
+    :-  346
+    0x200.0000.0001.01be.f67e.4e2f.b9dd.eeb3.
+     4619.73cd.4c62.abb3.5050.b1ad.d772.995b.
+     820b.584a.4884.8900.0000.0000.38b0.2b80.
+     02c0.c62d.0000.0000.0016.0014.ccf1.af2f.
+     2aab.ee14.bb40.fa38.51ab.2301.de84.3110.
+     54a5.6a00.0000.0000.2200.204a.db4e.2f00.
+     643d.b396.dd12.0d4e.7dc1.7625.f5f2.c11a.
+     40d8.57ac.cc86.2d6b.7dd8.0e04.0047.3044.
+     0220.51b7.5c73.198c.6dee.e1a8.7587.1c39.
+     6183.2909.acd2.97c6.b908.d59e.3319.e518.
+     5a46.0220.55c4.1937.9c50.51a7.8d00.dbbc.
+     e11b.5b66.4a0c.2281.5fbc.c6fc.ef6b.1937.
+     c383.6939.0148.3045.0221.00f5.1d2e.566a.
+     70ba.740f.c5d8.c0f0.7b9b.93d2.ed74.1c3c.
+     0860.c613.173d.e7d3.9e79.6802.2041.376d.
+     520e.9c0e.1ad5.2248.ddf4.b22e.12be.8763.
+     007d.f977.253e.f45a.4ca3.bdb7.c001.4752.
+     2102.3da0.92f6.980e.58d2.c037.1731.80e9.
+     a465.4760.26ee.50f9.6695.963e.8efe.436f.
+     54eb.2103.0e9f.7b62.3d2c.cc7c.9bd4.4d66.
+     d5ce.21ce.504c.0acf.6385.a132.cec6.d3c3.
+     9fa7.11c1.52ae.3e19.5220
+  --
+::
+++  test-all-htlcs-untrimmed
+  |^
+  %+  expect-eq
+    !>  output-commit-tx
+    !>  %-  segwit-encode:bitcoin-txu:bolt
+        %:  tx:commitment:bolt-tx:bolt
+          c=test-channel
+          to-local=to-local-msat
+          to-remote=to-remote-msat
+          keyring=keyring:tx-test
+          our=%.y
+        ==
+  ::
+  ++  test-channel
+    ^-  chan
+    =+  c=channel:tx-test
+    %_  c
+      feerate-per-kw             0
+      offered.commit-state.our   offered-htlcs
+      received.commit-state.our  received-htlcs
+      funding-signature.her  [71 0x30.4402.204f.d492.8835.db1c.cdfc.40f5.c78c.e9bd.6524.9b16.348d.f81f.0c44.328d.cdef.c97d.6302.2019.4d38.69c3.8bc7.32dd.87d1.3d29.5801.5e2f.c168.29e7.4cd4.377f.84d2.15c0.b706.0601]
+      funding-signature.our  [71 0x30.4402.2027.5b0c.325a.5e93.5565.0dc3.0c0e.ccfb.c7ef.b239.87c2.4b55.6b9d.fdd4.0eff.ca18.d202.206c.aceb.2c06.7836.c51f.2967.40c7.ae80.7ffc.bfbf.1dd3.a0d5.6b6d.e9a5.b247.985f.0601]
+    ==
+  ::
+  ++  offered-htlcs
+    ^-  (list htlc)
+    :~  :*  from=~sampel-palnet
+            channel-id=0
+            id=2
+            amount-msat=2.000.000
+            payment-hash=(sha256:bc [wid=32 dat=0x202.0202.0202.0202.0202.0202.0202.0202.0202.0202.0202.0202.0202.0202.0202.0202])
+            cltv-expiry=502
+        ==
+        ::
+        :*  from=~sampel-palnet
+            channel-id=0
+            id=3
+            amount-msat=3.000.000
+            payment-hash=(sha256:bc [wid=32 dat=0x303.0303.0303.0303.0303.0303.0303.0303.0303.0303.0303.0303.0303.0303.0303.0303])
+            cltv-expiry=503
+        ==
+    ==
+  ::
+  ++  received-htlcs
+    ^-  (list htlc)
+    :~  :*  from=~sampel-palnet
+            channel-id=0
+            id=0
+            amount-msat=1.000.000
+            payment-hash=(sha256:bc [wid=32 dat=0x0])
+            cltv-expiry=500
+        ==
+        ::
+        :*  from=~sampel-palnet
+            channel-id=0
+            id=1
+            amount-msat=2.000.000
+            payment-hash=(sha256:bc [wid=32 dat=0x101.0101.0101.0101.0101.0101.0101.0101.0101.0101.0101.0101.0101.0101.0101.0101])
+            cltv-expiry=501
+        ==
+        ::
+        :*  from=~sampel-palnet
+            channel-id=0
+            id=4
+            amount-msat=4.000.000
+            payment-hash=(sha256:bc [wid=32 dat=0x404.0404.0404.0404.0404.0404.0404.0404.0404.0404.0404.0404.0404.0404.0404.0404])
+            cltv-expiry=504
+        ==
+    ==
+  ::
+  ++  to-local-msat
+    ^-  msats
+    6.988.000.000
+  ::
+  ++  to-remote-msat
+    ^-  msats
+    3.000.000.000
+  ::
+  ++  output-commit-tx
+    ^-  hexb:bc
+    :-  560
+    0x200.0000.0001.01be.f67e.4e2f.b9dd.eeb3.
+      4619.73cd.4c62.abb3.5050.b1ad.d772.995b.
+      820b.584a.4884.8900.0000.0000.38b0.2b80.
+      07e8.0300.0000.0000.0022.0020.52bf.ef04.
+      79d7.b293.c27e.0f1e.b294.bea1.54c6.3a32.
+      94ef.092c.19af.5140.9bce.0e2a.d007.0000.
+      0000.0000.2200.2040.3d39.4747.cae4.2e98.
+      ff01.734a.d5c0.8f82.ba12.3d3d.9a62.0abd.
+      a889.8965.1e2a.b5d0.0700.0000.0000.0022.
+      0020.748e.ba94.4fed.c882.7f6b.06bc.4467.
+      8f93.c0f9.e607.8b35.c633.1ed3.1e75.f8ce.
+      0c2d.b80b.0000.0000.0000.2200.20c2.0b5d.
+      1f85.84fd.9044.3e7b.7b72.0136.174f.a4b9.
+      333c.261d.04db.bd01.2635.c0f4.19a0.0f00.
+      0000.0000.0022.0020.8c48.d151.6039.7c97.
+      31df.9bc3.b236.656e.fb66.65fb.fe92.b4a6.
+      878e.88a4.99f7.41c4.c0c6.2d00.0000.0000.
+      1600.14cc.f1af.2f2a.abee.14bb.40fa.3851.
+      ab23.01de.8431.10e0.a06a.0000.0000.0022.
+      0020.4adb.4e2f.0064.3db3.96dd.120d.4e7d.
+      c176.25f5.f2c1.1a40.d857.accc.862d.6b7d.
+      d80e.0400.4730.4402.2027.5b0c.325a.5e93.
+      5565.0dc3.0c0e.ccfb.c7ef.b239.87c2.4b55.
+      6b9d.fdd4.0eff.ca18.d202.206c.aceb.2c06.
+      7836.c51f.2967.40c7.ae80.7ffc.bfbf.1dd3.
+      a0d5.6b6d.e9a5.b247.985f.0601.4730.4402.
+      204f.d492.8835.db1c.cdfc.40f5.c78c.e9bd.
+      6524.9b16.348d.f81f.0c44.328d.cdef.c97d.
+      6302.2019.4d38.69c3.8bc7.32dd.87d1.3d29.
+      5801.5e2f.c168.29e7.4cd4.377f.84d2.15c0.
+      b706.0601.4752.2102.3da0.92f6.980e.58d2.
+      c037.1731.80e9.a465.4760.26ee.50f9.6695.
+      963e.8efe.436f.54eb.2103.0e9f.7b62.3d2c.
+      cc7c.9bd4.4d66.d5ce.21ce.504c.0acf.6385.
+      a132.cec6.d3c3.9fa7.11c1.52ae.3e19.5220
+  --
+::
 ::
 ++  test-key-derivation
   |^

@@ -90,10 +90,7 @@
     ++  output
       |=  [p1=pubkey p2=pubkey amt=sats:bc]
       ^-  output:tx:bc
-      =/  script=hexb:bc
-        %-  p2wsh
-        %+  output-script  p1  p2
-      :*  script-pubkey=script
+      :*  script-pubkey=(p2wsh (output-script p1 p2))
           value=amt
       ==
     ::
@@ -171,78 +168,119 @@
           ==
       |^  ^-  data:^tx
       =|  txd=data:^tx
-      =:  nversion.txd  2
-          locktime.txd  (locktime obscured-commitment-number)
-          segwit.txd    (some 1)
+      %_  txd
+          nversion  2
+          locktime  (locktime ocn)
+          segwit    (some 1)
+          is        ~[(input funding-outpoint.c ocn)]
+          os        (outputs c keyring to-local-sats to-remote-sats our)
+          ws        (witnesses our.c her.c)
       ==
       ::
-      =.  is.txd
-        ~[(input funding-outpoint.c obscured-commitment-number)]
+      ++  ocn  (obscured-commitment-number c)
       ::
-      =.  os.txd
-        =/  local-out=output:tx:bc
-          %:  local-output
-            revocation-key.keyring
-            to-local-key.keyring
-            to-self-delay.c
-            to-local-sats
-          ==
-        =/  remote-out=output:tx:bc
-          (remote-output to-remote-key.keyring to-remote-sats)
-        (sort-outputs:bip69 ~[local-out remote-out])
+      ++  to-local-sats
+        ?:  initiator.c
+          (sub (msats-to-sats to-local) (tx-fee c))
+        (msats-to-sats to-local)
       ::
-      =.  ws.txd
-        =/  pka=pubkey     funding-pubkey.our.c
-        =/  pkb=pubkey     funding-pubkey.her.c
-        =/  sga=signature  funding-signature.our.c
-        =/  sgb=signature  funding-signature.her.c
-        =/  sig=(list signature)
-          %-  sort-signatures
-          :~  [sga pka]
-              [sgb pkb]
+      ++  to-remote-sats
+        ?:  initiator.c
+          (msats-to-sats to-remote)
+        (sub (msats-to-sats to-remote) (tx-fee c))
+      --
+    ::
+    ++  outputs
+      |=  $:  c=chan
+              keyring=commitment-keyring
+              to-local-sats=sats:bc
+              to-remote-sats=sats:bc
+              our=?
           ==
-        =/  ws=script:script
-          (output-script:funding pka pkb)
-        :~
-          %-  zing
-          :~  ~[0^0x0]
-              sig
-              ~[(en:script ws)]
-          ==
+      |^  ^-  (list output:tx:bc)
+      %-  sort-outputs:bip69
+      ;:  weld
+        ~[local-out remote-out]
+        ::
+        %+  htlc-outputs  %.n
+        offered.commit-state.our.c
+        ::
+        %+  htlc-outputs  %.y
+        received.commit-state.our.c
+      ==
+      ++  local-out
+        ^-  output:tx:bc
+        %:  local-output
+          revocation-key.keyring
+          to-local-key.keyring
+          to-self-delay.c
+          to-local-sats
         ==
       ::
-      txd
+      ++  remote-out
+        ^-  output:tx:bc
+        %+  remote-output
+          to-remote-key.keyring
+        to-remote-sats
       ::
-      ++  fee
-        ^-  sats:bc
-        (base-fee feerate-per-kw.c anchor-outputs.c num-htlcs)
+      ++  htlc-outputs
+        |=  [received=? htlcs=(list ^htlc)]
+        %+  turn
+          (skip htlcs htlc-trimmed)
+        (htlc-output received)
+      ::
+      ++  htlc-output
+        |=  r=?
+        |=  h=^htlc
+        (output:htlc c h keyring r our)
+      ::
+      ++  htlc-trimmed
+        |=  h=^htlc
+        (is-trimmed:htlc c h)
+      --
+    ::
+    ++  witnesses
+      |=  [our=chlen her=chlen]
+      |^  ^-  (list witness)
+      :~  %-  zing
+          :~  ~[0^0x0]
+              signatures
+              ~[(en:script witness-script)]
+          ==
+      ==
+      ++  witness-script
+        %+  output-script:funding
+          funding-pubkey.our
+        funding-pubkey.her
+      ::
+      ++  signatures
+        %-  sort-signatures
+        :~  [funding-signature.our funding-pubkey.our]
+            [funding-signature.her funding-pubkey.her]
+        ==
+      --
+    ::
+    ++  obscured-commitment-number
+      |=  c=chan
+      |^  ^-  @ud
+      %^    obscure-commitment-number
+          commitment-number.commit-state.our.c
+        payment.basepoints:open-state
+      payment.basepoints:accept-state
+      ++  open-state    ?:(initiator.c our.c her.c)
+      ++  accept-state  ?:(initiator.c her.c our.c)
+      --
+    ::
+    ++  tx-fee
+      |=  c=chan
+      |^  ^-  sats:bc
+      (base-fee feerate-per-kw.c anchor-outputs.c num-htlcs)
       ::
       ++  num-htlcs
         ^-  @ud
         %+  add
         %-  lent  offered.commit-state.our.c
         %-  lent  received.commit-state.our.c
-      ::
-      ++  obscured-commitment-number
-        ^-  @ud
-        %^    obscure-commitment-number
-            commitment-number.commit-state.our.c
-          payment.basepoints:open-state
-        payment.basepoints:accept-state
-      ::
-      ++  open-state    ?:(initiator.c our.c her.c)
-      ::
-      ++  accept-state  ?:(initiator.c her.c our.c)
-      ::
-      ++  to-local-sats
-        ?:  initiator.c
-          (sub (msats-to-sats to-local) fee)
-        (msats-to-sats to-local)
-      ::
-      ++  to-remote-sats
-        ?:  initiator.c
-          (msats-to-sats to-remote)
-        (sub (msats-to-sats to-remote) fee)
       --
     ::
     ++  expected-weight
@@ -326,12 +364,10 @@
     ::
     ++  anchor-output
       |=  [=pubkey amt=sats:bc]
-      |^  ^-  output:tx:bc
-      :*  script-pubkey=(p2wsh script)
+      ^-  output:tx:bc
+      :*  script-pubkey=(p2wsh (anchor-output-script pubkey))
           value=amt
       ==
-      ++  script  (anchor-output-script pubkey)
-      --
     ::
     ++  local-output-script
       |=  $:  =revocation=pubkey
@@ -379,119 +415,132 @@
   ++  htlc
     |%
     ++  output
-      |=  [c=chan our=?]
-      |^  ^-  output:tx:bc
-      ::  if from=us, do received, else offered
-      %.  c
+      |=  $:  c=chan
+              h=^htlc
+              k=commitment-keyring
+              received=?  ::  received HTLC
+              our=?       ::  our commitment
+          ==
+      ?:  ?&(received our)
+        (received-output:htlc c k h)
+      ?:  received
+        (offered-output:htlc c k h)
       ?:  our
-        received-output
-      offered-output
-      ::
-      ++  offered-output
-        |=  c=chan
-        =/  =htlc-pend  (need offer.htlc-state.c)
-        =/  script=script:script
-          %+  offered-script
-            c
-          htlc-pend
-        :*  script-pubkey=(p2wsh script)
-            value=(msats-to-sats amount-msat.htlc.htlc-pend)
-        ==
-      ::
-      ++  received-output
-        |=  c=chan
-        =/  =htlc-pend  (need receive.htlc-state.c)
-        =/  script=script:script
-          %+  received-script
-            c
-          htlc-pend
-        :*  script-pubkey=(p2wsh script)
-            value=(msats-to-sats amount-msat.htlc.htlc-pend)
-        ==
-      --
+        (offered-output:htlc c k h)
+      (received-output:htlc c k h)
     ::
     ++  is-trimmed
       |=  [c=chan h=^htlc]
       (lth (msats-to-sats amount-msat.h) dust-limit.c)
     ::
-    ++  offered-script
-      |=  [c=chan h=htlc-pend]
-      |^
-      ?:  anchor-outputs.c
-        with-anchors
-      without-anchors
-      ::
-      ++  with-anchors
-        :~  %op-dup
-            %op-hash160
-            [%op-pushdata (hash-160:bc revocation-pubkey.h)]
-            %op-equal
-            %op-if
-            %op-checksig
-            %op-else
-            [%op-pushdata !!]
-            %op-swap
-            %op-size
-            [%op-pushdata [1 32]]
-            %op-equal
-            %op-notif
-            %op-drop
-            %op-2
-            %op-swap
-            [%op-pushdata !!]
-            %op-2
-            %op-checkmultisig
-            %op-else
-            %op-hash160
-            [%op-pushdata (hash-160:bc payment-hash.htlc.h)]
-            %op-equalverify
-            %op-checksig
-            %op-endif
-            %op-1
-            %op-checksequenceverify
-            %op-drop
-            %op-endif
-        ==
-      ::
-      ++  without-anchors
-        :~  %op-dup
-            %op-hash160
-            [%op-pushdata (hash-160:bc revocation-pubkey.h)]
-            %op-equal
-            %op-if
-            %op-checksig
-            %op-else
-            [%op-pushdata funding-pubkey.her.c]
-            %op-swap
-            %op-size
-            [%op-pushdata [1 32]]
-            %op-equal
-            %op-notif
-            %op-drop
-            %op-2
-            %op-swap
-            [%op-pushdata funding-pubkey.our.c]
-            %op-2
-            %op-checkmultisig
-            %op-else
-            %op-hash160
-            [%op-pushdata (hash-160:bc payment-hash.htlc.h)]
-            %op-equalverify
-            %op-checksig
-            %op-endif
-            %op-endif
-        ==
+    ++  offered-output
+      |=  [c=chan k=commitment-keyring h=^htlc]
+      |^  ^-  output:tx:bc
+      :*  script-pubkey=(p2wsh script)
+          value=(msats-to-sats amount-msat.h)
+      ==
+      ++  script  (offered-script k payment-hash.h anchor-outputs.c)
       --
     ::
+    ++  received-output
+      |=  [c=chan k=commitment-keyring h=^htlc]
+      |^  ^-  output:tx:bc
+      :*  script-pubkey=(p2wsh script)
+          value=(msats-to-sats amount-msat.h)
+      ==
+      ++  script  (received-script k payment-hash.h cltv-expiry.h anchor-outputs.c)
+      --
+    ::
+    ++  offered-script
+      |=  $:  keys=commitment-keyring
+              payment-hash=hexb:bc
+              confirmed-spend=?
+          ==
+      ^-  script:script
+      %+  welp
+        :~  %op-dup
+            %op-hash160
+            [%op-pushdata (hash-160:bc revocation-key.keys)]
+            %op-equal
+            %op-if
+            %op-checksig
+            %op-else
+            [%op-pushdata remote-htlc-key.keys]
+            %op-swap
+            %op-size
+            [%op-pushdata [1 32]]
+            %op-equal
+            %op-notif
+            %op-drop
+            %op-2
+            %op-swap
+            [%op-pushdata local-htlc-key.keys]
+            %op-2
+            %op-checkmultisig
+            %op-else
+            %op-hash160
+            [%op-pushdata [20 (ripemd-160:ripemd:crypto payment-hash)]]
+            %op-equalverify
+            %op-checksig
+            %op-endif
+        ==
+        ?:  confirmed-spend
+          :~  %op-1
+              %op-checksequenceverify
+              %op-drop
+              %op-endif
+          ==
+        ~[%op-endif]
+    ::
     ++  received-script
-      |=  [c=chan h=htlc-pend]
-      |^
-      ?:  anchor-outputs.c
-        with-anchors
-      without-anchors
-      ++  with-anchors  ~
-      ::
-      ++  without-anchors  ~
+      |=  $:  keys=commitment-keyring
+              payment-hash=hexb:bc
+              cltv-expiry=@ud
+              confirmed-spend=?
+          ==
+      |^  ^-  script:script
+      ;:  welp
+        :~  %op-dup
+            %op-hash160
+            [%op-pushdata (hash-160:bc revocation-key.keys)]
+            %op-equal
+            %op-if
+            %op-checksig
+            %op-else
+            [%op-pushdata remote-htlc-key.keys]
+            %op-swap
+            %op-size
+            [%op-pushdata [1 32]]
+            %op-equal
+            %op-if
+            %op-hash160
+            [%op-pushdata [20 (ripemd-160:ripemd:crypto payment-hash)]]
+            %op-equalverify
+            %op-2
+            %op-swap
+            [%op-pushdata local-htlc-key.keys]
+            %op-2
+            %op-checkmultisig
+            %op-else
+            %op-drop
+            [%op-pushdata cltv-byts]
+            %op-checklocktimeverify
+            %op-drop
+            %op-checksig
+            %op-endif
+        ==
+        ?.  confirmed-spend  ~
+        :~  %op-1
+            %op-checksequenceverify
+            %op-drop
+        ==
+        ~[%op-endif]
+      ==
+      ++  cltv-byts
+        %-  flip:byt:bc
+        :*  wid=2
+            dat=cltv-expiry
+        ==
       --
     ::
     ++  timeout-tx
@@ -738,32 +787,6 @@
     ++  c  (point-hash per-commitment-point revocation-basepoint)
     --
   ::
-  ++  per-commitment-secret
-    |=  [seed=hexb:bc i=@ud]
-    |^  ^-  hexb:bc
-    =/  p=hexb:bc  seed
-    =/  b=@ud      47
-    |-
-    ?:  =(0 b)
-      p
-    ?:  =(1 (get-bit b p))
-      %_  $
-        b  (dec b)
-        p  (sha256:bc (flip-bit b p))
-      ==
-    $(b (dec b), p p)
-    ::
-    ++  get-bit
-      |=  [n=@ b=hexb:bc]
-      ~|  "Unimplemented"
-      !!
-    ::
-    ++  flip-bit
-      |=  [n=@ b=hexb:bc]
-      ~|  "Unimplemented"
-      !!
-    --
-  ::
   ++  derive-commitment-keys
     |=  $:  per-commitment-point=point
             local=chlen
@@ -771,30 +794,73 @@
             our=?
         ==
     |^  ^-  commitment-keyring
-    :*  local-htlc-key=(derive-pubkey per-commitment-point htlc.basepoints.local)
-        remote-htlc-key=(derive-pubkey per-commitment-point htlc.basepoints.remote)
-        to-local-key=(derive-pubkey per-commitment-point to-local-basepoint)
-        to-remote-key=(derive-pubkey per-commitment-point to-remote-basepoint)
-        revocation-key=(derive-revocation-pubkey per-commitment-point revocation-basepoint)
+    :*  local-htlc-key=local-htlc-pubkey
+        remote-htlc-key=remote-htlc-pubkey
+        to-local-key=to-local-pubkey
+        to-remote-key=to-remote-pubkey
+        revocation-key=revocation-pubkey
     ==
     ::
-    ++  to-local-basepoint
+    ++  local-htlc-pubkey
+      %+  derive-pubkey
+        per-commitment-point
+      htlc.basepoints.local
+    ::
+    ++  remote-htlc-pubkey
+      %+  derive-pubkey
+        per-commitment-point
+      htlc.basepoints.remote
+    ::
+    ++  to-local-pubkey
+      %+  derive-pubkey
+        per-commitment-point
       ?:  our
         delayed-payment.basepoints.local
       delayed-payment.basepoints.remote
     ::
-    ++  to-remote-basepoint
+    ++  to-remote-pubkey
+      %+  derive-pubkey
+        per-commitment-point
       ?:  our
         payment.basepoints.remote
       payment.basepoints.local
     ::
-    ++  revocation-basepoint
+    ++  revocation-pubkey
+      %+  derive-revocation-pubkey
+        per-commitment-point
       ?:  our
         revocation.basepoints.remote
       revocation.basepoints.local
+    --
+  ::
+  ++  generate-per-commitment-secret
+    |=  [seed=hexb:bc i=@ud]
+    |^  ^-  hexb:bc
+    =/  p=hexb:bc  seed
+    =/  b=@ud      47
+    |-
+    ?:  =(0 b)
+      p
+    ?:  (test-bit b p)
+      %_  $
+        b  (dec b)
+        p  (sha256:bc (flip-bit b p))
+      ==
+    $(b (dec b), p p)
     ::
-    ++  local-htlc-basepoint   htlc.basepoints.local
-    ++  remote-htlc-basepoint  htlc.basepoints.remote
+    ++  test-bit
+      |=  [n=@ p=hexb:bc]
+      =(1 (get-bit n p))
+    ::
+    ++  get-bit
+      |=  [n=@ p=hexb:bc]
+      ~|  "Unimplemented"
+      !!
+    ::
+    ++  flip-bit
+      |=  [n=@ b=hexb:bc]
+      ~|  "Unimplemented"
+      !!
     --
   --
 --
