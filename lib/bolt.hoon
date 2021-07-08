@@ -185,14 +185,22 @@
       ++  ocn  (obscured-commitment-number c)
       ::
       ++  to-local-sats
+        =/  fee=sats:bc  (tx-fee c)
+        =/  =sats:bc     (msats-to-sats to-local)
         ?:  initiator.c
-          (sub (msats-to-sats to-local) (tx-fee c))
-        (msats-to-sats to-local)
+          ?:  (lth sats fee)
+            0
+          (sub sats fee)
+        sats
       ::
       ++  to-remote-sats
+        =/  fee=sats:bc  (tx-fee c)
+        =/  =sats:bc     (msats-to-sats to-remote)
         ?:  initiator.c
-          (msats-to-sats to-remote)
-        (sub (msats-to-sats to-remote) (tx-fee c))
+          sats
+        ?:  (lth sats fee)
+          0
+        (sub sats fee)
       --
     ::
     ++  outputs
