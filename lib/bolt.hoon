@@ -204,8 +204,15 @@
           ==
       |^  ^-  (list output:tx:bc)
       %-  sort-outputs:bip69
-      ;:  weld
-        ~[local-out remote-out]
+      %-  zing
+      :~
+        ?.  (lth to-local-sats dust-limit.c)
+          ~[local-out]
+        ~
+        ::
+        ?.  (lth to-remote-sats dust-limit.c)
+          ~[remote-out]
+        ~
         ::
         %+  htlc-outputs  %.n
         offered.commit-state.our.c
