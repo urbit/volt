@@ -35,6 +35,11 @@
     :~  %op-0
         [%op-pushdata (hash-160:bc p)]
     ==
+  ::
+  ++  fee-by-weight
+    |=  [feerate-per-kw=@ud weight=@ud]
+    ^-  @ud
+    (div (mul weight feerate-per-kw) 1.000)
   ::  +sort-signatures:bolt-tx: order a pair of signature, pubkey pairs
   ::
   ::    The funding transaction witness script orders pubkeys
@@ -226,7 +231,7 @@
       ++  htlc-outputs
         |=  [received=? htlcs=(list ^htlc)]
         %+  turn
-          (skip htlcs htlc-trimmed)
+          (skip htlcs (htlc-trimmed received))
         (htlc-output received)
       ::
       ++  htlc-output
@@ -235,8 +240,9 @@
         (output:htlc c h keyring r our)
       ::
       ++  htlc-trimmed
+        |=  r=?
         |=  h=^htlc
-        (is-trimmed:htlc c h)
+        (is-trimmed:htlc c h r)
       --
     ::
     ++  witnesses
@@ -267,6 +273,7 @@
           commitment-number.commit-state.our.c
         payment.basepoints:open-state
       payment.basepoints:accept-state
+      ::
       ++  open-state    ?:(initiator.c our.c her.c)
       ++  accept-state  ?:(initiator.c her.c our.c)
       --
@@ -279,8 +286,14 @@
       ++  num-htlcs
         ^-  @ud
         %+  add
-        %-  lent  offered.commit-state.our.c
-        %-  lent  received.commit-state.our.c
+        %-  lent
+          %+  skip  offered.commit-state.our.c
+          |=  h=^htlc
+          (is-trimmed:htlc c h %.n)
+        %-  lent
+          %+  skip  received.commit-state.our.c
+          |=  h=^htlc
+          (is-trimmed:htlc c h %.y)
       --
     ::
     ++  expected-weight
@@ -289,11 +302,6 @@
       ?.  anchor
         (add 724 (mul 172 num-htlcs))
       (add 1.124 (mul 172 num-htlcs))
-    ::
-    ++  fee-by-weight
-      |=  [feerate-per-kw=@ud weight=@ud]
-      ^-  @ud
-      (div (mul weight feerate-per-kw) 1.000)
     ::
     ++  base-fee
       |=  [feerate-per-kw=@ud anchor=? num-htlcs=@ud]
@@ -430,8 +438,32 @@
       (received-output:htlc c k h)
     ::
     ++  is-trimmed
-      |=  [c=chan h=^htlc]
-      (lth (msats-to-sats amount-msat.h) dust-limit.c)
+      |=  [c=chan h=^htlc received=?]
+      |^  ^-  ?
+      ?|  %+  lth  amount-sats  fee
+          %+  lth
+            %+  sub  amount-sats  fee
+          dust-limit.c
+      ==
+      ++  amount-sats  (msats-to-sats amount-msat.h)
+      ::
+      ++  fee
+        ?:  received
+          %-  success-fee  c
+        %-  timeout-fee  c
+      --
+    ::
+    ++  success-fee
+      |=  c=chan
+      %+  fee-by-weight
+        feerate-per-kw.c
+      ?.(anchor-outputs.c 703 706)
+    ::
+    ++  timeout-fee
+      |=  c=chan
+      %+  fee-by-weight
+        feerate-per-kw.c
+      ?.(anchor-outputs.c 663 666)
     ::
     ++  offered-output
       |=  [c=chan k=commitment-keyring h=^htlc]
