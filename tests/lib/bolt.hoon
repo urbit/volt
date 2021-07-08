@@ -378,185 +378,150 @@
       commitment-number.commit-state.our  42
       commitment-number.commit-state.her  42
     ==
+  ::
+  +$  htlc-data
+    $:  received=?
+        id=@ud
+        amount=msats
+        preimage=hexb:bc
+        expiry=@ud
+    ==
+  ::
+  +$  test-vector
+    $:  to-local-msat=msats
+        to-remote-msat=msats
+        htlcs=(list htlc-data)
+        local-feerate-per-kw=@ud
+        our-funding-signature=(unit signature)
+        her-funding-signature=(unit signature)
+        output-commit-tx=hexb:bc
+    ==
   --
 ::
-++  test-simple-commitment
+++  test-commitment-tx
+  ^-  tang
   |^
-  %+  expect-eq
-    !>  output-commit-tx
-    !>  %-  segwit-encode:bitcoin-txu:bolt
-        %:  tx:commitment:bolt-tx:bolt
-          c=test-channel
-          to-local=to-local-msat
-          to-remote=to-remote-msat
-          keyring=keyring:tx-test
-          our=%.y
-        ==
+  %-  zing
+  (turn tx-test-vectors check-commitment)
   ::
-  ++  test-channel
-    ^-  chan
+  ++  check-commitment
+    |=  =test-vector:tx-test
+    =/  [received=(list htlc) offered=(list htlc)]
+      %-  partition-htlcs
+      htlcs.test-vector
     =+  c=channel:tx-test
-    %_  c
-      feerate-per-kw   local-feerate-per-kw
+    =:  feerate-per-kw.c             local-feerate-per-kw.test-vector
+        received.commit-state.our.c  received
+        offered.commit-state.our.c   offered
     ==
+    ::
+    =?  funding-signature.our.c  ?=(^ our-funding-signature.test-vector)
+      u.our-funding-signature.test-vector
+    ::
+    =?  funding-signature.her.c  ?=(^ her-funding-signature.test-vector)
+      u.her-funding-signature.test-vector
+    ::
+    %+  expect-eq
+      !>  output-commit-tx.test-vector
+      !>  %-  segwit-encode:bitcoin-txu:bolt
+          %:  tx:commitment:bolt-tx:bolt
+            c=c
+            to-local=to-local-msat.test-vector
+            to-remote=to-remote-msat.test-vector
+            keyring=keyring:tx-test
+            our=%.y
+          ==
   ::
-  ++  to-local-msat
-    ^-  msats
-    7.000.000.000
+  ++  partition-htlcs
+    |=  htlcs=(list htlc-data:tx-test)
+    =/  [received=(list htlc-data:tx-test) offered=(list htlc-data:tx-test)]
+      %+  skid  htlcs
+      |=  h=htlc-data:tx-test
+      received.h
+    :-  (turn received create-htlc)
+        (turn offered create-htlc)
   ::
-  ++  to-remote-msat
-    ^-  msats
-    3.000.000.000
-  ::
-  ++  local-feerate-per-kw
-    ^-  @ud
-    15.000
-  ::
-  ++  output-commit-tx
-    ^-  hexb:bc
-    :-  346
-    0x200.0000.0001.01be.f67e.4e2f.b9dd.eeb3.
-     4619.73cd.4c62.abb3.5050.b1ad.d772.995b.
-     820b.584a.4884.8900.0000.0000.38b0.2b80.
-     02c0.c62d.0000.0000.0016.0014.ccf1.af2f.
-     2aab.ee14.bb40.fa38.51ab.2301.de84.3110.
-     54a5.6a00.0000.0000.2200.204a.db4e.2f00.
-     643d.b396.dd12.0d4e.7dc1.7625.f5f2.c11a.
-     40d8.57ac.cc86.2d6b.7dd8.0e04.0047.3044.
-     0220.51b7.5c73.198c.6dee.e1a8.7587.1c39.
-     6183.2909.acd2.97c6.b908.d59e.3319.e518.
-     5a46.0220.55c4.1937.9c50.51a7.8d00.dbbc.
-     e11b.5b66.4a0c.2281.5fbc.c6fc.ef6b.1937.
-     c383.6939.0148.3045.0221.00f5.1d2e.566a.
-     70ba.740f.c5d8.c0f0.7b9b.93d2.ed74.1c3c.
-     0860.c613.173d.e7d3.9e79.6802.2041.376d.
-     520e.9c0e.1ad5.2248.ddf4.b22e.12be.8763.
-     007d.f977.253e.f45a.4ca3.bdb7.c001.4752.
-     2102.3da0.92f6.980e.58d2.c037.1731.80e9.
-     a465.4760.26ee.50f9.6695.963e.8efe.436f.
-     54eb.2103.0e9f.7b62.3d2c.cc7c.9bd4.4d66.
-     d5ce.21ce.504c.0acf.6385.a132.cec6.d3c3.
-     9fa7.11c1.52ae.3e19.5220
+  ++  create-htlc
+    |=  h=htlc-data:tx-test
+    ^-  htlc
+    :*  from=~sampel-palnet
+        id=id.h
+        channel-id=0
+        amount-msat=amount.h
+        payment-hash=(sha256:bc preimage.h)
+        cltv-expiry=expiry.h
+    ==
   --
 ::
-++  test-all-htlcs-untrimmed
-  |^
-  %+  expect-eq
-    !>  output-commit-tx
-    !>  %-  segwit-encode:bitcoin-txu:bolt
-        %:  tx:commitment:bolt-tx:bolt
-          c=test-channel
-          to-local=to-local-msat
-          to-remote=to-remote-msat
-          keyring=keyring:tx-test
-          our=%.y
-        ==
-  ::
-  ++  test-channel
-    ^-  chan
-    =+  c=channel:tx-test
-    %_  c
-      feerate-per-kw             0
-      offered.commit-state.our   offered-htlcs
-      received.commit-state.our  received-htlcs
-      funding-signature.her  [71 0x30.4402.204f.d492.8835.db1c.cdfc.40f5.c78c.e9bd.6524.9b16.348d.f81f.0c44.328d.cdef.c97d.6302.2019.4d38.69c3.8bc7.32dd.87d1.3d29.5801.5e2f.c168.29e7.4cd4.377f.84d2.15c0.b706.0601]
-      funding-signature.our  [71 0x30.4402.2027.5b0c.325a.5e93.5565.0dc3.0c0e.ccfb.c7ef.b239.87c2.4b55.6b9d.fdd4.0eff.ca18.d202.206c.aceb.2c06.7836.c51f.2967.40c7.ae80.7ffc.bfbf.1dd3.a0d5.6b6d.e9a5.b247.985f.0601]
+++  htlc-data
+    ^-  (list htlc-data:tx-test)
+    :~
+      :*  received=%.y
+          id=0
+          amount=1.000.000
+          preimage=[wid=32 dat=0x0]
+          expiry=500
+      ==
+      ::
+      :*  received=%.y
+          id=1
+          amount=2.000.000
+          preimage=[wid=32 dat=0x101.0101.0101.0101.0101.0101.0101.0101.0101.0101.0101.0101.0101.0101.0101.0101]
+          expiry=501
+      ==
+      ::
+      :*  received=%.n
+          id=2
+          amount=2.000.000
+          preimage=[wid=32 dat=0x202.0202.0202.0202.0202.0202.0202.0202.0202.0202.0202.0202.0202.0202.0202.0202]
+          expiry=502
+      ==
+      ::
+      :*  received=%.n
+          id=3
+          amount=3.000.000
+          preimage=[wid=32 dat=0x303.0303.0303.0303.0303.0303.0303.0303.0303.0303.0303.0303.0303.0303.0303.0303]
+          expiry=503
+      ==
+      ::
+      :*  received=%.y
+          id=4
+          amount=4.000.000
+          preimage=[wid=32 dat=0x404.0404.0404.0404.0404.0404.0404.0404.0404.0404.0404.0404.0404.0404.0404.0404]
+          expiry=504
+      ==
     ==
-  ::
-  ++  offered-htlcs
-    ^-  (list htlc)
-    :~  :*  from=~sampel-palnet
-            channel-id=0
-            id=2
-            amount-msat=2.000.000
-            payment-hash=(sha256:bc [wid=32 dat=0x202.0202.0202.0202.0202.0202.0202.0202.0202.0202.0202.0202.0202.0202.0202.0202])
-            cltv-expiry=502
-        ==
-        ::
-        :*  from=~sampel-palnet
-            channel-id=0
-            id=3
-            amount-msat=3.000.000
-            payment-hash=(sha256:bc [wid=32 dat=0x303.0303.0303.0303.0303.0303.0303.0303.0303.0303.0303.0303.0303.0303.0303.0303])
-            cltv-expiry=503
-        ==
-    ==
-  ::
-  ++  received-htlcs
-    ^-  (list htlc)
-    :~  :*  from=~sampel-palnet
-            channel-id=0
-            id=0
-            amount-msat=1.000.000
-            payment-hash=(sha256:bc [wid=32 dat=0x0])
-            cltv-expiry=500
-        ==
-        ::
-        :*  from=~sampel-palnet
-            channel-id=0
-            id=1
-            amount-msat=2.000.000
-            payment-hash=(sha256:bc [wid=32 dat=0x101.0101.0101.0101.0101.0101.0101.0101.0101.0101.0101.0101.0101.0101.0101.0101])
-            cltv-expiry=501
-        ==
-        ::
-        :*  from=~sampel-palnet
-            channel-id=0
-            id=4
-            amount-msat=4.000.000
-            payment-hash=(sha256:bc [wid=32 dat=0x404.0404.0404.0404.0404.0404.0404.0404.0404.0404.0404.0404.0404.0404.0404.0404])
-            cltv-expiry=504
-        ==
-    ==
-  ::
-  ++  to-local-msat
-    ^-  msats
-    6.988.000.000
-  ::
-  ++  to-remote-msat
-    ^-  msats
-    3.000.000.000
-  ::
-  ++  output-commit-tx
-    ^-  hexb:bc
-    :-  560
-    0x200.0000.0001.01be.f67e.4e2f.b9dd.eeb3.
-      4619.73cd.4c62.abb3.5050.b1ad.d772.995b.
-      820b.584a.4884.8900.0000.0000.38b0.2b80.
-      07e8.0300.0000.0000.0022.0020.52bf.ef04.
-      79d7.b293.c27e.0f1e.b294.bea1.54c6.3a32.
-      94ef.092c.19af.5140.9bce.0e2a.d007.0000.
-      0000.0000.2200.2040.3d39.4747.cae4.2e98.
-      ff01.734a.d5c0.8f82.ba12.3d3d.9a62.0abd.
-      a889.8965.1e2a.b5d0.0700.0000.0000.0022.
-      0020.748e.ba94.4fed.c882.7f6b.06bc.4467.
-      8f93.c0f9.e607.8b35.c633.1ed3.1e75.f8ce.
-      0c2d.b80b.0000.0000.0000.2200.20c2.0b5d.
-      1f85.84fd.9044.3e7b.7b72.0136.174f.a4b9.
-      333c.261d.04db.bd01.2635.c0f4.19a0.0f00.
-      0000.0000.0022.0020.8c48.d151.6039.7c97.
-      31df.9bc3.b236.656e.fb66.65fb.fe92.b4a6.
-      878e.88a4.99f7.41c4.c0c6.2d00.0000.0000.
-      1600.14cc.f1af.2f2a.abee.14bb.40fa.3851.
-      ab23.01de.8431.10e0.a06a.0000.0000.0022.
-      0020.4adb.4e2f.0064.3db3.96dd.120d.4e7d.
-      c176.25f5.f2c1.1a40.d857.accc.862d.6b7d.
-      d80e.0400.4730.4402.2027.5b0c.325a.5e93.
-      5565.0dc3.0c0e.ccfb.c7ef.b239.87c2.4b55.
-      6b9d.fdd4.0eff.ca18.d202.206c.aceb.2c06.
-      7836.c51f.2967.40c7.ae80.7ffc.bfbf.1dd3.
-      a0d5.6b6d.e9a5.b247.985f.0601.4730.4402.
-      204f.d492.8835.db1c.cdfc.40f5.c78c.e9bd.
-      6524.9b16.348d.f81f.0c44.328d.cdef.c97d.
-      6302.2019.4d38.69c3.8bc7.32dd.87d1.3d29.
-      5801.5e2f.c168.29e7.4cd4.377f.84d2.15c0.
-      b706.0601.4752.2102.3da0.92f6.980e.58d2.
-      c037.1731.80e9.a465.4760.26ee.50f9.6695.
-      963e.8efe.436f.54eb.2103.0e9f.7b62.3d2c.
-      cc7c.9bd4.4d66.d5ce.21ce.504c.0acf.6385.
-      a132.cec6.d3c3.9fa7.11c1.52ae.3e19.5220
-  --
 ::
+++  tx-test-vectors
+  ^-  (list test-vector:tx-test)
+  :~
+    :*  to-local-msat=7.000.000.000
+        to-remote-msat=3.000.000.000
+        htlcs=~
+        local-feerate-per-kw=15.000
+        our-funding-signature=~
+        her-funding-signature=~
+        output-commit-tx=[346 0x200.0000.0001.01be.f67e.4e2f.b9dd.eeb3.4619.73cd.4c62.abb3.5050.b1ad.d772.995b.820b.584a.4884.8900.0000.0000.38b0.2b80.02c0.c62d.0000.0000.0016.0014.ccf1.af2f.2aab.ee14.bb40.fa38.51ab.2301.de84.3110.54a5.6a00.0000.0000.2200.204a.db4e.2f00.643d.b396.dd12.0d4e.7dc1.7625.f5f2.c11a.40d8.57ac.cc86.2d6b.7dd8.0e04.0047.3044.0220.51b7.5c73.198c.6dee.e1a8.7587.1c39.6183.2909.acd2.97c6.b908.d59e.3319.e518.5a46.0220.55c4.1937.9c50.51a7.8d00.dbbc.e11b.5b66.4a0c.2281.5fbc.c6fc.ef6b.1937.c383.6939.0148.3045.0221.00f5.1d2e.566a.70ba.740f.c5d8.c0f0.7b9b.93d2.ed74.1c3c.0860.c613.173d.e7d3.9e79.6802.2041.376d.520e.9c0e.1ad5.2248.ddf4.b22e.12be.8763.007d.f977.253e.f45a.4ca3.bdb7.c001.4752.2102.3da0.92f6.980e.58d2.c037.1731.80e9.a465.4760.26ee.50f9.6695.963e.8efe.436f.54eb.2103.0e9f.7b62.3d2c.cc7c.9bd4.4d66.d5ce.21ce.504c.0acf.6385.a132.cec6.d3c3.9fa7.11c1.52ae.3e19.5220]
+    ==
+    ::
+    :*  to-local-msat=6.988.000.000
+        to-remote-msat=3.000.000.000
+        htlcs=htlc-data
+        local-feerate-per-kw=0
+        our-funding-signature=(some [71 0x30.4402.2027.5b0c.325a.5e93.5565.0dc3.0c0e.ccfb.c7ef.b239.87c2.4b55.6b9d.fdd4.0eff.ca18.d202.206c.aceb.2c06.7836.c51f.2967.40c7.ae80.7ffc.bfbf.1dd3.a0d5.6b6d.e9a5.b247.985f.0601])
+        her-funding-signature=(some [71 0x30.4402.204f.d492.8835.db1c.cdfc.40f5.c78c.e9bd.6524.9b16.348d.f81f.0c44.328d.cdef.c97d.6302.2019.4d38.69c3.8bc7.32dd.87d1.3d29.5801.5e2f.c168.29e7.4cd4.377f.84d2.15c0.b706.0601])
+        output-commit-tx=[560 0x200.0000.0001.01be.f67e.4e2f.b9dd.eeb3.4619.73cd.4c62.abb3.5050.b1ad.d772.995b.820b.584a.4884.8900.0000.0000.38b0.2b80.07e8.0300.0000.0000.0022.0020.52bf.ef04.79d7.b293.c27e.0f1e.b294.bea1.54c6.3a32.94ef.092c.19af.5140.9bce.0e2a.d007.0000.0000.0000.2200.2040.3d39.4747.cae4.2e98.ff01.734a.d5c0.8f82.ba12.3d3d.9a62.0abd.a889.8965.1e2a.b5d0.0700.0000.0000.0022.0020.748e.ba94.4fed.c882.7f6b.06bc.4467.8f93.c0f9.e607.8b35.c633.1ed3.1e75.f8ce.0c2d.b80b.0000.0000.0000.2200.20c2.0b5d.1f85.84fd.9044.3e7b.7b72.0136.174f.a4b9.333c.261d.04db.bd01.2635.c0f4.19a0.0f00.0000.0000.0022.0020.8c48.d151.6039.7c97.31df.9bc3.b236.656e.fb66.65fb.fe92.b4a6.878e.88a4.99f7.41c4.c0c6.2d00.0000.0000.1600.14cc.f1af.2f2a.abee.14bb.40fa.3851.ab23.01de.8431.10e0.a06a.0000.0000.0022.0020.4adb.4e2f.0064.3db3.96dd.120d.4e7d.c176.25f5.f2c1.1a40.d857.accc.862d.6b7d.d80e.0400.4730.4402.2027.5b0c.325a.5e93.5565.0dc3.0c0e.ccfb.c7ef.b239.87c2.4b55.6b9d.fdd4.0eff.ca18.d202.206c.aceb.2c06.7836.c51f.2967.40c7.ae80.7ffc.bfbf.1dd3.a0d5.6b6d.e9a5.b247.985f.0601.4730.4402.204f.d492.8835.db1c.cdfc.40f5.c78c.e9bd.6524.9b16.348d.f81f.0c44.328d.cdef.c97d.6302.2019.4d38.69c3.8bc7.32dd.87d1.3d29.5801.5e2f.c168.29e7.4cd4.377f.84d2.15c0.b706.0601.4752.2102.3da0.92f6.980e.58d2.c037.1731.80e9.a465.4760.26ee.50f9.6695.963e.8efe.436f.54eb.2103.0e9f.7b62.3d2c.cc7c.9bd4.4d66.d5ce.21ce.504c.0acf.6385.a132.cec6.d3c3.9fa7.11c1.52ae.3e19.5220]
+    ==
+    ::
+    :*  to-local-msat=6.988.000.000
+        to-remote-msat=3.000.000.000
+        htlcs=htlc-data
+        local-feerate-per-kw=647
+        our-funding-signature=(some [72 0x3045.0221.0094.bfd8.f557.2ac0.157e.c76a.9551.b6c5.216a.4538.c07c.d13a.51af.4a54.cb26.fa14.3202.2076.8efc.e8ce.6f4a.5efa.c875.142f.f192.37c0.1134.3670.adf9.c7ac.6970.4a12.0d11.6301])
+        her-funding-signature=(some [72 0x3045.0221.00a5.c013.83d3.ec64.6d97.e40f.4431.8d49.def8.17fc.d61a.0ef1.8008.a665.b3e1.5178.5502.203e.648e.fddd.5838.981e.f55e.c954.be69.c4a6.52d0.21e6.081a.100d.034d.e366.815e.9b01])
+        output-commit-tx=[562 0x200.0000.0001.01be.f67e.4e2f.b9dd.eeb3.4619.73cd.4c62.abb3.5050.b1ad.d772.995b.820b.584a.4884.8900.0000.0000.38b0.2b80.07e8.0300.0000.0000.0022.0020.52bf.ef04.79d7.b293.c27e.0f1e.b294.bea1.54c6.3a32.94ef.092c.19af.5140.9bce.0e2a.d007.0000.0000.0000.2200.2040.3d39.4747.cae4.2e98.ff01.734a.d5c0.8f82.ba12.3d3d.9a62.0abd.a889.8965.1e2a.b5d0.0700.0000.0000.0022.0020.748e.ba94.4fed.c882.7f6b.06bc.4467.8f93.c0f9.e607.8b35.c633.1ed3.1e75.f8ce.0c2d.b80b.0000.0000.0000.2200.20c2.0b5d.1f85.84fd.9044.3e7b.7b72.0136.174f.a4b9.333c.261d.04db.bd01.2635.c0f4.19a0.0f00.0000.0000.0022.0020.8c48.d151.6039.7c97.31df.9bc3.b236.656e.fb66.65fb.fe92.b4a6.878e.88a4.99f7.41c4.c0c6.2d00.0000.0000.1600.14cc.f1af.2f2a.abee.14bb.40fa.3851.ab23.01de.8431.10e0.9c6a.0000.0000.0022.0020.4adb.4e2f.0064.3db3.96dd.120d.4e7d.c176.25f5.f2c1.1a40.d857.accc.862d.6b7d.d80e.0400.4830.4502.2100.94bf.d8f5.572a.c015.7ec7.6a95.51b6.c521.6a45.38c0.7cd1.3a51.af4a.54cb.26fa.1432.0220.768e.fce8.ce6f.4a5e.fac8.7514.2ff1.9237.c011.3436.70ad.f9c7.ac69.704a.120d.1163.0148.3045.0221.00a5.c013.83d3.ec64.6d97.e40f.4431.8d49.def8.17fc.d61a.0ef1.8008.a665.b3e1.5178.5502.203e.648e.fddd.5838.981e.f55e.c954.be69.c4a6.52d0.21e6.081a.100d.034d.e366.815e.9b01.4752.2102.3da0.92f6.980e.58d2.c037.1731.80e9.a465.4760.26ee.50f9.6695.963e.8efe.436f.54eb.2103.0e9f.7b62.3d2c.cc7c.9bd4.4d66.d5ce.21ce.504c.0acf.6385.a132.cec6.d3c3.9fa7.11c1.52ae.3e19.5220]
+    ==
+  ==
 ::
 ++  test-key-derivation
   |^
