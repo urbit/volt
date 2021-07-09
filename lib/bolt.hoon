@@ -116,53 +116,9 @@
   ::
   ++  commitment
     |%
-    ::  +tx:commitment:bolt-tx:
+    ::  +tx:commitment:bolt-tx: generate the tx data for the commitment state
     ::
-    ::    Commitment Transaction Construction
-    ::
-    ::    This section ties the previous sections together to
-    ::    detail the algorithm for constructing the commitment
-    ::    transaction for one peer: given that peer's
-    ::    dust_limit_satoshis, the current feerate_per_kw, the
-    ::    amounts due to each peer (to_local and to_remote),
-    ::    and all committed HTLCs:
-    ::
-    ::    Initialize the commitment transaction input and
-    ::    locktime, as specified in Commitment Transaction.
-    ::
-    ::    Calculate which committed HTLCs need to be trimmed
-    ::      (see Trimmed Outputs).
-    ::
-    ::    Calculate the base commitment transaction fee.
-    ::
-    ::    Subtract this base fee from the funder (either
-    ::      to_local or to_remote). If option_anchor_outputs
-    ::      applies to the commitment transaction, also
-    ::      subtract two times the fixed anchor size of 330 sats
-    ::      from the funder (either to_local or to_remote).
-    ::
-    ::    For every offered HTLC, if it is not trimmed, add an
-    ::      offered HTLC output.
-    ::
-    ::    For every received HTLC, if it is not trimmed, add
-    ::      an received HTLC output.
-    ::
-    ::    If the to_local amount is greater or equal to
-    ::      dust_limit_satoshis, add a to_local output.
-    ::
-    ::    If the to_remote amount is greater or equal to
-    ::      dust_limit_satoshis, add a to_remote output.
-    ::
-    ::    If option_anchor_outputs applies to the commitment
-    ::      transaction:
-    ::
-    ::      if to_local exists or there are untrimmed HTLCs,
-    ::        add a to_local_anchor output
-    ::
-    ::      if to_remote exists or there are untrimmed HTLCs,
-    ::        add a to_remote_anchor output
-    ::
-    ::    Sort the outputs into BIP 69+CLTV order.
+    ::    See: https://github.com/lightningnetwork/lightning-rfc/blob/master/03-transactions.md#commitment-transaction-construction
     ::
     ++  tx
       |=  $:  c=chan
