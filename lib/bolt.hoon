@@ -14,33 +14,10 @@
     ^-  id
     (mix funding-txid funding-output-index)
   ::
-  ++  subz
-    |=  [a=@ b=@]
-    ?:  (lth a b)
-      0
-    (sub a b)
-  ::
   ++  msats-to-sats
     |=  a=msats
     ^-  sats:bc
     (div a 1.000)
-  ::
-  ++  p2wsh
-    |=  s=script:btc-script
-    ^-  hexb:bc
-    %-  en:btc-script
-    :~  %op-0
-        :-  %op-pushdata
-        %-  sha256:bc  (en:btc-script s)
-    ==
-  ::
-  ++  p2wpkh
-    |=  p=pubkey
-    ^-  hexb:bc
-    %-  en:btc-script
-    :~  %op-0
-        [%op-pushdata (hash-160:bc p)]
-    ==
   ::
   ++  fee-by-weight
     |=  [feerate-per-kw=@ud weight=@ud]
@@ -98,7 +75,7 @@
     ws=ws
     ::
     ++  script-pubkey
-      %-  p2wsh
+      %-  p2wsh:script
       %+  funding-output:script
         lpk
       rpk
@@ -140,15 +117,44 @@
         ?:(initiator.c her.c our.c)
       --
     ::
+    ++  htlc-success-fee
+      %+  fee-by-weight
+        feerate-per-kw.c
+      ?.(anchor-outputs.c 703 706)
+    ::
+    ++  htlc-timeout-fee
+      %+  fee-by-weight
+        feerate-per-kw.c
+      ?.(anchor-outputs.c 663 666)
+    ::
+    ++  is-trimmed
+      |=  [h=htlc received=?]
+      |^  ^-  ?
+      ?|  (lth amount-sats fee)
+          %+  lth
+          %+  sub  amount-sats  fee
+          dust-limit.c
+      ==
+      ::
+      ++  amount-sats
+        %-  msats-to-sats
+        amount-msat.h
+      ::
+      ++  fee
+        ?:  received
+          htlc-success-fee
+        htlc-timeout-fee
+      --
+    ::
     ++  offered-htlcs
       %+  skip  offered.commit-state.our.c
-      |=  h=^htlc
-      (is-trimmed:htlc c h %.n)
+      |=  h=htlc
+      (is-trimmed h %.n)
     ::
     ++  received-htlcs
       %+  skip  received.commit-state.our.c
-      |=  h=^htlc
-      (is-trimmed:htlc c h %.y)
+      |=  h=htlc
+      (is-trimmed h %.y)
     ::
     ++  num-untrimmed-htlcs
       ^-  @ud
@@ -170,12 +176,19 @@
     ::
     ++  subtract-fee-and-anchor
       |=  amt=sats:bc
+      |^  ^-  @ud
       %+  subz
       %+  subz  amt  base-fee
       ?:  anchor-outputs.c
         %+  mul  2
         anchor-size
       0
+      ++  subz
+        |=  [a=@ b=@]
+        ?:  (lth a b)
+          0
+        (sub a b)
+      --
     ::
     ++  to-local-sats
       ?:  initiator.c
@@ -199,7 +212,7 @@
           value=to-local-sats
       ==
       ++  script-pubkey
-        %-  p2wsh
+        %-  p2wsh:script
         %^    local-output:script
             revocation-key.keyring
           to-local-key.keyring
@@ -217,27 +230,52 @@
       ==
       ++  script-pubkey
         ?:  anchor-outputs.c
-          %-  p2wsh
+          %-  p2wsh:script
           %-  remote-output:script
           to-remote-key.keyring
-        %-  p2wpkh
+        %-  p2wpkh:script
         to-remote-key.keyring
       --
     ::
     ++  htlc-output
-      |=  received=?
-      |=  h=^htlc
-      (output:htlc c h keyring received our)
+      |=  [h=htlc received=?]
+      |^  ^-  output:tx:bc
+      :*  script-pubkey=script-pubkey
+          value=(msats-to-sats amount-msat.h)
+      ==
+      ++  script-pubkey
+        %-  p2wsh:script
+        ?:  ?&(received our)
+          htlc-received-script
+        ?:  received
+          htlc-offered-script
+        ?:  our
+          htlc-offered-script
+        htlc-received-script
+      ::
+      ++  htlc-offered-script
+        %^    htlc-offered:script
+            keyring
+          payment-hash.h
+        anchor-outputs.c
+      ::
+      ++  htlc-received-script
+        %:  htlc-received:script
+          keys=keyring
+          payment-hash=payment-hash.h
+          cltv-expiry=cltv-expiry.h
+          confirmed-spend=anchor-outputs.c
+        ==
+      --
     ::
     ++  anchor-output
       |=  =pubkey
-      |^
-      ^-  output:tx:bc
+      |^  ^-  output:tx:bc
       :*  script-pubkey=script-pubkey
           value=anchor-size
       ==
       ++  script-pubkey
-        %-  p2wsh
+        %-  p2wsh:script
         %-  anchor-output:script
         pubkey
       --
@@ -280,10 +318,12 @@
         ~[(need remote-output)]
         ::
         %+  turn  offered-htlcs
-        %-  htlc-output  %.n
+        |=  h=htlc
+        (htlc-output h %.n)
         ::
         %+  turn  received-htlcs
-        %-  htlc-output  %.y
+        |=  h=htlc
+        (htlc-output h %.y)
         ::
         ?:  ?&(!=(~ local-output) anchor-outputs.c)
           ~[(anchor-output funding-pubkey.our.c)]
@@ -330,78 +370,28 @@
       ==
       ws=witnesses
     --
-  ::
-  ++  htlc
-    |%
-    ++  output
-      |=  $:  c=chan
-              h=^htlc
-              k=commitment-keyring
-              received=?  ::  received HTLC
-              our=?       ::  our commitment
-          ==
-      ?:  ?&(received our)
-        (received-output:htlc c k h)
-      ?:  received
-        (offered-output:htlc c k h)
-      ?:  our
-        (offered-output:htlc c k h)
-      (received-output:htlc c k h)
-    ::
-    ++  is-trimmed
-      |=  [c=chan h=^htlc received=?]
-      |^  ^-  ?
-      ?|  %+  lth  amount-sats  fee
-          %+  lth
-            %+  sub  amount-sats  fee
-          dust-limit.c
-      ==
-      ++  amount-sats  (msats-to-sats amount-msat.h)
-      ::
-      ++  fee
-        ?:  received
-          %-  success-fee  c
-        %-  timeout-fee  c
-      --
-    ::
-    ++  success-fee
-      |=  c=chan
-      %+  fee-by-weight
-        feerate-per-kw.c
-      ?.(anchor-outputs.c 703 706)
-    ::
-    ++  timeout-fee
-      |=  c=chan
-      %+  fee-by-weight
-        feerate-per-kw.c
-      ?.(anchor-outputs.c 663 666)
-    ::
-    ++  offered-output
-      |=  [c=chan k=commitment-keyring h=^htlc]
-      |^  ^-  output:tx:bc
-      :*  script-pubkey=script-pubkey
-          value=(msats-to-sats amount-msat.h)
-      ==
-      ++  script-pubkey
-        %-  p2wsh
-        (htlc-offered:script k payment-hash.h anchor-outputs.c)
-      --
-    ::
-    ++  received-output
-      |=  [c=chan k=commitment-keyring h=^htlc]
-      |^  ^-  output:tx:bc
-      :*  script-pubkey=script-pubkey
-          value=(msats-to-sats amount-msat.h)
-      ==
-      ++  script-pubkey
-        %-  p2wsh
-        (htlc-received:script k payment-hash.h cltv-expiry.h anchor-outputs.c)
-      --
-    --
   ::  +script:bolt-tx:  script generators
   ::
   ++  script
     |%
+    ::
+    ++  p2wsh
+      |=  s=script:btc-script
+      ^-  hexb:bc
+      %-  en:btc-script
+      :~  %op-0
+          :-  %op-pushdata
+          %-  sha256:bc  (en:btc-script s)
+      ==
+    ::
+    ++  p2wpkh
+      |=  p=pubkey
+      ^-  hexb:bc
+      %-  en:btc-script
+      :~  %op-0
+          [%op-pushdata (hash-160:bc p)]
+      ==
+    ::
     ++  funding-output
       |=  [p1=pubkey p2=pubkey]
       ;:  welp
