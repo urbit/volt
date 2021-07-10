@@ -173,8 +173,8 @@
   ++  check-witness-script
     %+  expect-eq
       !>  funding-witness-script
-    !>  %-  en:script
-        %+  output-script:funding
+    !>  %-  en:btc-script
+        %+  funding-output:script
           local-funding-pubkey
         remote-funding-pubkey
   ::
@@ -182,13 +182,13 @@
     %+  expect-eq
       !>  funding-tx
       !>  %-  segwit-encode:bitcoin-txu
-          %:  tx:funding
-            local-funding-pubkey
-            remote-funding-pubkey
-            10.000.000
-            funding-inputs
-            funding-change
-            ~
+          %:  funding-tx:bolt-tx:bolt
+            lpk=local-funding-pubkey
+            rpk=remote-funding-pubkey
+            amt=10.000.000
+            ins=funding-inputs
+            chg=funding-change
+            ws=~
           ==
   ::
   ++  privkey
@@ -424,11 +424,12 @@
     %+  expect-eq
       !>  output-commit-tx.test-vector
       !>  %-  segwit-encode:bitcoin-txu:bolt
-          %:  tx:commitment:bolt-tx:bolt
+          %~  tx-data  commitment:bolt-tx:bolt
+          :*
             c=c
+            keyring=keyring:tx-test
             to-local=to-local-msat.test-vector
             to-remote=to-remote-msat.test-vector
-            keyring=keyring:tx-test
             our=%.y
           ==
   ::
