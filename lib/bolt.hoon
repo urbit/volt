@@ -450,26 +450,32 @@
           %op-endif
       ==
     ::
+    ++  htlc-prefix
+      |=  keys=commitment-keyring
+      ^-  script:btc-script
+      :~  %op-dup
+          %op-hash160
+          [%op-pushdata (hash-160:bc revocation-key.keys)]
+          %op-equal
+          %op-if
+          %op-checksig
+          %op-else
+          [%op-pushdata remote-htlc-key.keys]
+          %op-swap
+          %op-size
+          [%op-pushdata [1 32]]
+          %op-equal
+      ==
+    ::
     ++  htlc-offered
       |=  $:  keys=commitment-keyring
               payment-hash=hexb:bc
               confirmed-spend=?
           ==
       ^-  script:btc-script
-      %+  welp
-        :~  %op-dup
-            %op-hash160
-            [%op-pushdata (hash-160:bc revocation-key.keys)]
-            %op-equal
-            %op-if
-            %op-checksig
-            %op-else
-            [%op-pushdata remote-htlc-key.keys]
-            %op-swap
-            %op-size
-            [%op-pushdata [1 32]]
-            %op-equal
-            %op-notif
+      ;:  welp
+        %-  htlc-prefix  keys
+        :~  %op-notif
             %op-drop
             %op-2
             %op-swap
@@ -490,6 +496,7 @@
               %op-endif
           ==
         ~[%op-endif]
+      ==
     ::
     ++  htlc-received
       |=  $:  keys=commitment-keyring
@@ -499,19 +506,8 @@
           ==
       |^  ^-  script:btc-script
       ;:  welp
-        :~  %op-dup
-            %op-hash160
-            [%op-pushdata (hash-160:bc revocation-key.keys)]
-            %op-equal
-            %op-if
-            %op-checksig
-            %op-else
-            [%op-pushdata remote-htlc-key.keys]
-            %op-swap
-            %op-size
-            [%op-pushdata [1 32]]
-            %op-equal
-            %op-if
+        %-  htlc-prefix  keys
+        :~  %op-if
             %op-hash160
             [%op-pushdata [20 (ripemd-160:ripemd:crypto payment-hash)]]
             %op-equalverify
@@ -535,6 +531,7 @@
         ==
         ~[%op-endif]
       ==
+      ::
       ++  cltv-byts
         %-  flip:byt:bc
         :*  wid=2
