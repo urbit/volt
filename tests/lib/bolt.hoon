@@ -679,31 +679,31 @@
     %+  expect-eq
       !>  public-key
       !>  %+  derive-pubkey:keys:bolt
-            per-commitment-point
-          basepoint
+            basepoint
+          per-commitment-point
   ::
   ++  check-private-key
     %+  expect-eq
       !>  private-key
       !>  %^    derive-privkey:keys:bolt
-              per-commitment-point
-            basepoint
+              basepoint
+            per-commitment-point
           basepoint-secret
   ::
   ++  check-revocation-pubkey
     %+  expect-eq
       !>  revocation-pubkey
       !>  %+  derive-revocation-pubkey:keys:bolt
-            per-commitment-point
-          basepoint
+            basepoint
+          per-commitment-point
   ::
   ++  check-revocation-secret
     %+  expect-eq
       !>  revocation-privkey
       !>  %:  derive-revocation-privkey:keys:bolt
-            per-commitment-point=per-commitment-point
             revocation-basepoint=basepoint
             revocation-basepoint-secret=basepoint-secret
+            per-commitment-point=per-commitment-point
             per-commitment-secret=per-commitment-secret
           ==
   ::
@@ -746,5 +746,50 @@
     ^-  point
     %-  decompress-point:secp256k1:secp:crypto
     0x2.5f71.17a7.8150.fe2e.f97d.b7cf.c83b.d57b.2e2c.0d0d.d25e.af46.7a4a.1c2a.45ce.1486
+  --
+::
+++  test-per-commitment-secret-generation
+  |^
+  ;:  weld
+    check-zero-final-node
+    check-fs-final-node
+    check-fs-alternate-bits-1
+    check-fs-alternate-bits-2
+    check-last-nontrivial
+  ==
+  ++  check-zero-final-node
+    %+  expect-eq
+      !>  [32 0x2a4.0c85.b6f2.8da0.8dfd.be09.26c5.3fab.2de6.d28c.1030.1f8f.7c40.73d5.e42e.3148]
+      !>  %+  generate-per-commitment-secret:keys:bolt
+            [32 0x0]
+          281.474.976.710.655
+  ::
+  ++  check-fs-final-node
+    %+  expect-eq
+      !>  [32 0x7cc8.54b5.4e3e.0dcd.b010.d7a3.fee4.64a9.687b.e6e8.db3b.e685.4c47.5621.e007.a5dc]
+      !>  %+  generate-per-commitment-secret:keys:bolt
+            [32 0xffff.ffff.ffff.ffff.ffff.ffff.ffff.ffff.ffff.ffff.ffff.ffff.ffff.ffff.ffff.ffff]
+          281.474.976.710.655
+  ::
+  ++  check-fs-alternate-bits-1
+    %+  expect-eq
+      !>  [32 0x56f4.008f.b007.ca9a.cf0e.15b0.54d5.c9fd.12ee.06ce.a347.914d.dbae.d70d.1c13.a528]
+      !>  %+  generate-per-commitment-secret:keys:bolt
+            [32 0xffff.ffff.ffff.ffff.ffff.ffff.ffff.ffff.ffff.ffff.ffff.ffff.ffff.ffff.ffff.ffff]
+          0xaaa.aaaa.aaaa
+  ::
+  ++  check-fs-alternate-bits-2
+    %+  expect-eq
+      !>  [32 0x9015.daae.b06d.ba4c.cc05.b91b.2f73.bd54.405f.2be9.f217.fbac.d3c5.ac2e.6232.7d31]
+      !>  %+  generate-per-commitment-secret:keys:bolt
+            [32 0xffff.ffff.ffff.ffff.ffff.ffff.ffff.ffff.ffff.ffff.ffff.ffff.ffff.ffff.ffff.ffff]
+          0x5555.5555.5555
+  ::
+  ++  check-last-nontrivial
+    %+  expect-eq
+      !>  [32 0x915c.7594.2a26.bb3a.433a.8ce2.cb04.27c2.9ec6.c177.5cfc.7832.8b57.f6ba.7bfe.aa9c]
+      !>  %+  generate-per-commitment-secret:keys:bolt
+            [32 0x101.0101.0101.0101.0101.0101.0101.0101.0101.0101.0101.0101.0101.0101.0101.0101]
+          1
   --
 --

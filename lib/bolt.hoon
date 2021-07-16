@@ -711,7 +711,7 @@
     c
   ::
   ++  derive-pubkey
-    |=  [per-commitment-point=point base=point]
+    |=  [base=point per-commitment-point=point]
     ^-  pubkey
     :-  33
     %-  compress-point
@@ -721,7 +721,7 @@
     base
   ::
   ++  derive-privkey
-    |=  [per-commitment-point=point base=point secret=hexb:bc]
+    |=  [base=point per-commitment-point=point secret=hexb:bc]
     ^-  privkey
     :-  32
     %+  mod
@@ -731,7 +731,7 @@
     n:t
   ::
   ++  derive-revocation-pubkey
-    |=  [per-commitment-point=point base=point]
+    |=  [base=point per-commitment-point=point]
     |^  ^-  pubkey
     :-  33
     %-  compress-point
@@ -744,9 +744,9 @@
     --
   ::
   ++  derive-revocation-privkey
-    |=  $:  per-commitment-point=point
-            revocation-basepoint=point
+    |=  $:  revocation-basepoint=point
             revocation-basepoint-secret=hexb:bc
+            per-commitment-point=point
             per-commitment-secret=hexb:bc
         ==
     |^  ^-  privkey
@@ -776,64 +776,85 @@
     ::
     ++  local-htlc-pubkey
       %+  derive-pubkey
-        per-commitment-point
-      htlc.basepoints.local
+        htlc.basepoints.local
+      per-commitment-point
     ::
     ++  remote-htlc-pubkey
       %+  derive-pubkey
-        per-commitment-point
-      htlc.basepoints.remote
+        htlc.basepoints.remote
+      per-commitment-point
     ::
     ++  to-local-pubkey
       %+  derive-pubkey
-        per-commitment-point
-      ?:  our
-        delayed-payment.basepoints.local
-      delayed-payment.basepoints.remote
+        ?:  our
+          delayed-payment.basepoints.local
+        delayed-payment.basepoints.remote
+      per-commitment-point
     ::
     ++  to-remote-pubkey
       %+  derive-pubkey
-        per-commitment-point
-      ?:  our
-        payment.basepoints.remote
-      payment.basepoints.local
+        ?:  our
+          payment.basepoints.remote
+        payment.basepoints.local
+      per-commitment-point
     ::
     ++  revocation-pubkey
       %+  derive-revocation-pubkey
-        per-commitment-point
-      ?:  our
-        revocation.basepoints.remote
-      revocation.basepoints.local
+        ?:  our
+          revocation.basepoints.remote
+        revocation.basepoints.local
+      per-commitment-point
     --
   ::
+  ++  compute-commitment-point
+    |=  commit-secret=hexb:bc
+    ^-  point
+    %+  mul-point-scalar
+      g:t
+    dat:commit-secret
+  ::
+  ++  per-commitment-first-index
+    ^-  @ud
+    281.474.976.710.655
+  ::
   ++  generate-per-commitment-secret
-    |=  [seed=hexb:bc i=@ud]
+    |=  [seed=hexb:bc i=@u]
     |^  ^-  hexb:bc
-    =/  p=hexb:bc  seed
-    =/  b=@ud      47
+    =/  p=@    dat.seed
+    =/  b=@ud  48
     |-
+    =.  b  (dec b)
+    =?  p  (test-bit b i)
+      %+  shay  32
+      %+  flip-bit  b  p
     ?:  =(0 b)
-      p
-    ?:  (test-bit b p)
-      %_  $
-        b  (dec b)
-        p  (sha256:bc (flip-bit b p))
+      :*
+        wid=32
+        dat=(swp 3 p)
       ==
-    $(b (dec b), p p)
+    $(b b, p p)
     ::
     ++  test-bit
-      |=  [n=@ p=hexb:bc]
+      |=  [n=@ p=@]
       =(1 (get-bit n p))
     ::
     ++  get-bit
-      |=  [n=@ p=hexb:bc]
-      ~|  "Unimplemented"
-      !!
+      |=  [n=@ p=@]
+      =/  byt=@  (div n 8)
+      =/  bit=@  (mod n 8)
+      %+  dis  0x1
+      %+  rsh  [0 bit]
+      %+  rsh  [3 byt]
+      p
     ::
     ++  flip-bit
-      |=  [n=@ b=hexb:bc]
-      ~|  "Unimplemented"
-      !!
+      |=  [n=@ b=@]
+      =/  byt=@  (div n 8)
+      =/  bit=@  (mod n 8)
+      %+  mix  b
+      %+  lsh  [0 bit]
+      %+  lsh  [3 byt]
+      1
     --
   --
 --
