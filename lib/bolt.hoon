@@ -805,21 +805,29 @@
         revocation.basepoints.local
       per-commitment-point
     --
+  --
+::
+++  commitment-secret
+  |%
+  +$  index  @u
+  +$  seed  hexb:bc
+  +$  commit-secret  hexb:bc
   ::
   ++  compute-commitment-point
-    |=  commit-secret=hexb:bc
+    =,  secp256k1:secp:crypto
+    |=  =commit-secret
     ^-  point
     %+  mul-point-scalar
       g:t
     dat:commit-secret
   ::
-  ++  per-commitment-first-index
+  ++  first-index
     ^-  @ud
     281.474.976.710.655
   ::
-  ++  generate-per-commitment-secret
-    |=  [seed=hexb:bc i=@u]
-    |^  ^-  hexb:bc
+  ++  generate-from-seed
+    |=  [=seed i=index]
+    |^  ^-  commit-secret
     =/  p=@    dat.seed
     =/  b=@ud  48
     |-
@@ -856,5 +864,18 @@
       %+  lsh  [3 byt]
       1
     --
+  ::
+  ++  next
+    |=  [=seed i=index]
+    ^-  (pair commit-secret index)
+    :-  (generate-from-seed seed i)
+        (dec i)
+  ::
+  ++  init-from-seed
+    |=  =seed
+    ^-  (pair commit-secret index)
+    %+  next
+      seed
+    first-index
   --
 --
