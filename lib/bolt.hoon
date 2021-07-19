@@ -245,21 +245,23 @@
       ==
       ++  script-pubkey
         %-  p2wsh:script
-        ?:  ?&(received our)
-          htlc-received-script
+        ?:  ?&  received
+                our
+            ==
+          received-script
         ?:  received
-          htlc-offered-script
+          offered-script
         ?:  our
-          htlc-offered-script
-        htlc-received-script
+          offered-script
+        received-script
       ::
-      ++  htlc-offered-script
+      ++  offered-script
         %^    htlc-offered:script
             keyring
           payment-hash.h
         anchor-outputs.c
       ::
-      ++  htlc-received-script
+      ++  received-script
         %:  htlc-received:script
           keys=keyring
           payment-hash=payment-hash.h
@@ -325,11 +327,15 @@
         |=  h=htlc
         (htlc-output h %.y)
         ::
-        ?:  ?&(!=(~ local-output) anchor-outputs.c)
+        ?:  ?&  !=(~ local-output)
+                anchor-outputs.c
+            ==
           ~[(anchor-output funding-pubkey.our.c)]
         ~
         ::
-        ?:  ?&(!=(~ remote-output) anchor-outputs.c)
+        ?:  ?&  !=(~ remote-output)
+                anchor-outputs.c
+            ==
           ~[(anchor-output funding-pubkey.her.c)]
         ~
       ==
@@ -810,7 +816,7 @@
 ++  commitment-secret
   |%
   +$  index  @u
-  +$  seed  hexb:bc
+  +$  seed   hexb:bc
   +$  commit-secret  hexb:bc
   ::
   ++  compute-commitment-point
