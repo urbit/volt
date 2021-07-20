@@ -376,6 +376,97 @@
       ==
       ws=witnesses
     --
+  ::
+  ++  htlc-spend
+    |=  $:  c=chan
+            h=htlc
+            keyring=commitment-keyring
+            =commitment=outpoint
+            timeout=?
+        ==
+    |^  ^-  data:tx
+    :-
+    :*  is=~[input]
+        os=~[output]
+        locktime=?:(timeout cltv-expiry.h 0)
+        nversion=2
+        segwit=(some 1)
+    ==
+    ws=~[witness]
+    ::
+    ++  input
+      :*  txid=txid.commitment-outpoint
+          pos=pos.commitment-outpoint
+          sequence=sequence
+          script=sig=~
+          pubkey=~
+          value=(msats-to-sats amount-msat.h)
+      ==
+    ::
+    ++  output
+      :*  script-pubkey=(p2wsh:script script-pubkey)
+          value=(sub (msats-to-sats amount-msat.h) fee)
+      ==
+    ::
+    ++  sequence
+      ^-  hexb:bc
+      :-  4
+      ?:  anchor-outputs.c
+        0x1
+      0x0
+    ::
+    ++  witness
+      ;:  weld
+        :~  0^0x0
+            (need remote-sig.h)
+            (need local-sig.h)
+        ==
+        ?:  timeout  ~
+        ~[(need payment-preimage.h)]
+      ==
+    ::
+    ++  script-pubkey
+      %^    htlc-spend:script
+          revocation-key.keyring
+        to-local-key.keyring
+      to-self-delay.c
+    ::
+    ++  fee
+      %+  fee-by-weight
+        feerate-per-kw.c
+      weight
+    ::
+    ++  weight
+      ?:  ?&(anchor-outputs.c timeout)
+        666
+      ?:  timeout
+        663
+      ?:  anchor-outputs.c
+        706
+      703
+    --
+  ::
+  ++  htlc-timeout
+    |=  [c=chan h=htlc keyring=commitment-keyring =commitment=outpoint]
+    ^-  data:tx
+    %:  htlc-spend
+        c=c
+        h=h
+        keyring=keyring
+        commitment-outpoint=commitment-outpoint
+        timeout=%.y
+    ==
+  ::
+  ++  htlc-success
+    |=  [c=chan h=htlc keyring=commitment-keyring =commitment=outpoint]
+    ^-  data:tx
+    %:  htlc-spend
+        c=c
+        h=h
+        keyring=keyring
+        commitment-outpoint=commitment-outpoint
+        timeout=%.n
+    ==
   ::  +script:bolt-tx:  script generators
   ::
   ++  script
@@ -542,6 +633,29 @@
         %-  flip:byt:bc
         :*  wid=2
             dat=cltv-expiry
+        ==
+      --
+    ::
+    ++  htlc-spend
+      |=  $:  revocation-pubkey=pubkey
+              local-delayed-pubkey=pubkey
+              to-self-delay=@ud
+          ==
+      |^  ^-  script:btc-script
+      :~  %op-if
+          [%op-pushdata revocation-pubkey]
+          %op-else
+          [%op-pushdata to-self-delay-byts]
+          %op-checksequenceverify
+          %op-drop
+          [%op-pushdata local-delayed-pubkey]
+          %op-endif
+          %op-checksig
+      ==
+      ++  to-self-delay-byts
+        %-  flip:byt:bc
+        :*  wid=2
+            dat=to-self-delay
         ==
       --
     --

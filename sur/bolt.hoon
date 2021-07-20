@@ -38,6 +38,9 @@
       amount-msat=msats
       payment-hash=hexb:bc
       cltv-expiry=blocks
+      payment-preimage=(unit hexb:bc)
+      local-sig=(unit hexb:bc)
+      remote-sig=(unit hexb:bc)
   ==
 ::
 ++  commitment-keyring

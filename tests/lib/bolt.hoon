@@ -461,12 +461,14 @@
   ++  create-htlc
     |=  h=htlc-data:tx-test
     ^-  htlc
-    :*  from=~sampel-palnet
-        id=id.h
-        channel-id=0
-        amount-msat=amount.h
-        payment-hash=(sha256:bc preimage.h)
-        cltv-expiry=expiry.h
+    =|  htlc=htlc
+    %_  htlc
+      from          ~sampel-palnet
+      id            id.h
+      channel-id    0
+      amount-msat   amount.h
+      payment-hash  (sha256:bc preimage.h)
+      cltv-expiry   expiry.h
     ==
   --
 ::
