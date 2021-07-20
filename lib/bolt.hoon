@@ -2,7 +2,7 @@
 ::  Library functions to implement Lightning BOLT RFCs.
 ::
 /-  *bolt
-/+  bc=bitcoin, btc-script=bolt-script
+/+  bc=bitcoin, bcu=bitcoin-utils, btc-script=bolt-script
 |%
 ::  +bolt-tx
 ::    helpers for building & signing commitment/HTLC txs
@@ -47,9 +47,9 @@
     ::
     ++  mask
       ^-  hexb:bc
-      %+  drop:byt:bc  26
-      %-  sha256:bc
-      %-  cat:byt:bc
+      %+  drop:byt:bcu  26
+      %-  sha256:bcu
+      %-  cat:byt:bcu
       :~  [33 (compress-point oc)]
           [33 (compress-point ac)]
       ==
@@ -478,7 +478,7 @@
       %-  en:btc-script
       :~  %op-0
           :-  %op-pushdata
-          %-  sha256:bc  (en:btc-script s)
+          %-  sha256:bcu  (en:btc-script s)
       ==
     ::
     ++  p2wpkh
@@ -486,7 +486,7 @@
       ^-  hexb:bc
       %-  en:btc-script
       :~  %op-0
-          [%op-pushdata (hash-160:bc p)]
+          [%op-pushdata (hash-160:bcu p)]
       ==
     ::
     ++  funding-output
@@ -520,7 +520,7 @@
          %op-checksig
       ==
       ++  to-self-delay-byts
-        %-  flip:byt:bc
+        %-  flip:byt:bcu
         :*  wid=2
             dat=to-self-delay
         ==
@@ -552,7 +552,7 @@
       ^-  script:btc-script
       :~  %op-dup
           %op-hash160
-          [%op-pushdata (hash-160:bc revocation-key.keys)]
+          [%op-pushdata (hash-160:bcu revocation-key.keys)]
           %op-equal
           %op-if
           %op-checksig
@@ -630,7 +630,7 @@
       ==
       ::
       ++  cltv-byts
-        %-  flip:byt:bc
+        %-  flip:byt:bcu
         :*  wid=2
             dat=cltv-expiry
         ==
@@ -653,7 +653,7 @@
           %op-checksig
       ==
       ++  to-self-delay-byts
-        %-  flip:byt:bc
+        %-  flip:byt:bcu
         :*  wid=2
             dat=to-self-delay
         ==
@@ -704,14 +704,14 @@
     ++  witness
       |=  w=^witness
       ^-  hexb:bc
-      %-  cat:byt:bc
-      :-  (en:csiz:bc (lent w))
+      %-  cat:byt:bcu
+      :-  (en:csiz:bcu (lent w))
       %-  zing
       %+  turn  w
       |=  b=hexb:bc
         ?:  =(0 wid.b)
           ~[1^0x0]
-        ~[(en:csiz:bc wid.b) b]
+        ~[(en:csiz:bcu wid.b) b]
     --
   ::
   ++  de
@@ -731,34 +731,34 @@
     ++  witness
       |=  b=hexb:bc
       ^-  [^witness rest=hexb:bc]
-      =^  n  b  (dea:csiz:bc b)
+      =^  n  b  (dea:csiz:bcu b)
       =|  acc=^witness
       |-
       ?:  =(0 n)  [(flop acc) b]
-      =^  siz  b  (dea:csiz:bc b)
+      =^  siz  b  (dea:csiz:bcu b)
       =^  elt  b
-        [(take:byt:bc siz b) (drop:byt:bc siz b)]
+        [(take:byt:bcu siz b) (drop:byt:bcu siz b)]
       $(acc [elt acc], n (dec n), b b)
     --
   ::
   ++  segwit-encode
     |=  =data:tx
     ^-  hexb:bc
-    %-  cat:byt:bc
+    %-  cat:byt:bcu:bc
     %-  zing
-    :~  ~[(flip:byt:bc 4^nversion.data)]
+    :~  ~[(flip:byt:bcu:bc 4^nversion.data)]
         ?:  ?&  ?=(^ segwit.data)
                 ?=(^ ws.data)
             ==
           :~  [wid=2 dat=0x1]
           ==
         ~
-        ~[(en:csiz:bc (lent is.data))]
+        ~[(en:csiz:bcu (lent is.data))]
         (turn is.data input:en:txu:bc)
-        ~[(en:csiz:bc (lent os.data))]
+        ~[(en:csiz:bcu (lent os.data))]
         (turn os.data output:en:txu:bc)
         (turn ws.data witness:en)
-        ~[(flip:byt:bc 4^locktime.data)]
+        ~[(flip:byt:bcu 4^locktime.data)]
     ==
   ::
   ++  segwit-decode
@@ -778,7 +778,7 @@
         %-  lent  inputs
       `b
     =/  locktime=@ud
-      dat:(take:byt:bc 4 (flip:byt:bc b))
+      dat:(take:byt:bcu 4 (flip:byt:bcu b))
     [[inputs outputs locktime nversion segwit] witnesses]
   ::
   ++  sign-tx
@@ -816,8 +816,8 @@
   ++  point-hash
     |=  [a=point b=point]
     ^-  hexb:bc
-    %-  sha256:bc
-    %-  cat:byt:bc
+    %-  sha256:bcu
+    %-  cat:byt:bcu
     :~  [33 (compress-point a)]
         [33 (compress-point b)]
     ==

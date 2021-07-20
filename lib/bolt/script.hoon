@@ -1,6 +1,6 @@
 ::  script.hoon
 ::
-/+  bc=bitcoin
+/+  bc=bitcoin-utils
 |%
 ::
 +$  script  (list op)
