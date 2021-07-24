@@ -204,10 +204,11 @@
     ::
     ++  local-output
       |^
-      ^-  (unit output:tx:bc)
+      ^-  (unit output:tx)
       ?:  (lth to-local-sats dust-limit.c)
         ~
       %-  some
+      :_  htlc=~
       :*  script-pubkey=script-pubkey
           value=to-local-sats
       ==
@@ -221,12 +222,14 @@
     ::
     ++  remote-output
       |^
-      ^-  (unit output:tx:bc)
+      ^-  (unit output:tx)
       ?:  (lth to-remote-sats dust-limit.c)
         ~
       %-  some
+      :_  htlc=~
       :*  script-pubkey=script-pubkey
           value=to-remote-sats
+
       ==
       ++  script-pubkey
         ?:  anchor-outputs.c
@@ -239,7 +242,8 @@
     ::
     ++  htlc-output
       |=  [h=htlc received=?]
-      |^  ^-  output:tx:bc
+      |^  ^-  output:tx
+      :_  htlc=(some h)
       :*  script-pubkey=script-pubkey
           value=(msats-to-sats amount-msat.h)
       ==
@@ -272,7 +276,8 @@
     ::
     ++  anchor-output
       |=  =pubkey
-      |^  ^-  output:tx:bc
+      |^  ^-  output:tx
+      :_  htlc=~
       :*  script-pubkey=script-pubkey
           value=anchor-size
       ==
@@ -308,7 +313,8 @@
     ::
     ++  outputs
       ^-  (list output:tx:bc)
-      %-  sort-outputs:bip69
+      %-  to-tx-outs:bitcoin-txu
+      %-  sort-outputs:bip69-cltv
       %-  zing
       :~
         ?:  =(~ local-output)
@@ -785,6 +791,11 @@
     |=  [tx=data:tx shash=(set value:sighash) k=hexb:bc]
     ^-  hexb:bc
     0^0x0
+  ::
+  ++  to-tx-outs
+    |=  txs=(list output:tx)
+    %+  turn  txs
+    |=  tx=output:tx  -.tx
   --
 ::
 ++  bip69
@@ -808,6 +819,25 @@
   ++  sort-inputs
     |=  is=(list input:tx:bc)
     (sort is input-lte)
+  --
+::
+++  bip69-cltv
+  |%
+  ++  output-lte
+    |=  [a=output:tx b=output:tx]
+    ?.  =(value.a value.b)
+      (lth value.a value.b)
+    ?.  =(dat.script-pubkey.a dat.script-pubkey.b)
+      (lte dat.script-pubkey.a dat.script-pubkey.b)
+    ?:  ?&  ?=(^ htlc.a)
+            ?=(^ htlc.b)
+        ==
+      (lte cltv-expiry.u.htlc.a cltv-expiry.u.htlc.b)
+    %.y
+  ::
+  ++  sort-outputs
+    |=  os=(list output:tx)
+    (sort os output-lte)
   --
 ::
 ++  keys

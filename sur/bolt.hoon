@@ -22,6 +22,10 @@
     $:  data:tx:bc
         ws=(list witness)
     ==
+  +$  output
+    $:  output:tx:bc
+        htlc=(unit htlc)
+    ==
   --
 ::
 +$  basepoints
