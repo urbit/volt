@@ -204,11 +204,10 @@
     ::
     ++  local-output
       |^
-      ^-  (unit output:tx)
+      ^-  (unit output:tx:bc)
       ?:  (lth to-local-sats dust-limit.c)
         ~
       %-  some
-      :_  htlc=~
       :*  script-pubkey=script-pubkey
           value=to-local-sats
       ==
@@ -222,11 +221,10 @@
     ::
     ++  remote-output
       |^
-      ^-  (unit output:tx)
+      ^-  (unit output:tx:bc)
       ?:  (lth to-remote-sats dust-limit.c)
         ~
       %-  some
-      :_  htlc=~
       :*  script-pubkey=script-pubkey
           value=to-remote-sats
 
@@ -242,8 +240,7 @@
     ::
     ++  htlc-output
       |=  [h=htlc received=?]
-      |^  ^-  output:tx
-      :_  htlc=(some h)
+      |^  ^-  output:tx:bc
       :*  script-pubkey=script-pubkey
           value=(msats-to-sats amount-msat.h)
       ==
@@ -276,8 +273,7 @@
     ::
     ++  anchor-output
       |=  =pubkey
-      |^  ^-  output:tx
-      :_  htlc=~
+      |^  ^-  output:tx:bc
       :*  script-pubkey=script-pubkey
           value=anchor-size
       ==
@@ -311,10 +307,39 @@
         ==
       ==
     ::
+    ++  cltvs
+      ^-  (list blocks)
+      %-  zing
+      :~
+        ?:  =(~ local-output)
+          ~
+        ~[0]
+        ::
+        ?:  =(~ remote-output)
+          ~
+        ~[0]
+        ::
+        %+  turn  offered-htlcs
+        |=  h=htlc  cltv-expiry.h
+        ::
+        %+  turn  received-htlcs
+        |=  h=htlc  cltv-expiry.h
+        ::
+        ?:  ?&  !=(~ local-output)
+                anchor-outputs.c
+            ==
+          ~[0]
+        ~
+        ::
+        ?:  ?&  !=(~ remote-output)
+                anchor-outputs.c
+            ==
+          ~[0]
+        ~
+      ==
+    ::
     ++  outputs
       ^-  (list output:tx:bc)
-      %-  to-tx-outs:bitcoin-txu
-      %-  sort-outputs:bip69-cltv
       %-  zing
       :~
         ?:  =(~ local-output)
@@ -375,7 +400,7 @@
       ^-  data:tx
       :-
       :*  is=inputs
-          os=outputs
+          os=(sort-outputs:bip69-cltv outputs cltvs)
           locktime=locktime
           nversion=2
           segwit=(some 1)
@@ -824,20 +849,34 @@
 ++  bip69-cltv
   |%
   ++  output-lte
-    |=  [a=output:tx b=output:tx]
-    ?.  =(value.a value.b)
-      (lth value.a value.b)
-    ?.  =(dat.script-pubkey.a dat.script-pubkey.b)
-      (lte dat.script-pubkey.a dat.script-pubkey.b)
-    ?:  ?&  ?=(^ htlc.a)
-            ?=(^ htlc.b)
-        ==
-      (lte cltv-expiry.u.htlc.a cltv-expiry.u.htlc.b)
-    %.y
+    |=  [a=(pair output:tx:bc blocks) b=(pair output:tx:bc blocks)]
+    ?.  =(value.p.a value.p.b)
+      (lth value.p.a value.p.b)
+    ?.  =(dat.script-pubkey.p.a dat.script-pubkey.p.b)
+      (lte dat.script-pubkey.p.a dat.script-pubkey.p.b)
+    (lte q.a q.b)
   ::
   ++  sort-outputs
-    |=  os=(list output:tx)
-    (sort os output-lte)
+    |=  [os=(list output:tx:bc) cltvs=(list blocks)]
+    |^  ^-  (list output:tx:bc)
+    %+  turn
+      %+  sort  pairs  output-lte
+    |=  pir=(pair output:tx:bc blocks)
+    p.pir
+    ::
+    ++  pairs
+      ^-  (list (pair output:tx:bc blocks))
+      =/  outs=(list output:tx:bc)  os
+      =/  vals=(list blocks)        cltvs
+      =|  pirs=(list (pair output:tx:bc blocks))
+      |-
+      ?~  outs  pirs
+      %=  $
+        outs   +.outs
+        vals   +.vals
+        pirs  :-([p=(head outs) q=(head vals)] pirs)
+      ==
+    --
   --
 ::
 ++  keys
